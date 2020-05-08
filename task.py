@@ -215,7 +215,7 @@ def ExecTask(block_hash):
     db_res = GetUsefulBlock(block_hash)
     while db_res == None:
         task_add.append(block_hash)
-        data = {"id":1,"method":"getblock","jsonrpc":"2.0","params":{"block":"'+ block_hash +'"}}
+        data = {"id":1,"method":"getblock","jsonrpc":"2.0","params":{"block": block_hash}}
         response = requests.post(url, json = data)
         res = json.loads(response.text)
         if "result" in res:
