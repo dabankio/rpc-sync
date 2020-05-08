@@ -245,8 +245,8 @@ def Getblockhash(height):
     return json.loads(response.text)
 
 def Getforkheight():
-    data = '{"id":1,"method":"getforkheight","jsonrpc":"2.0","params":{}}'
-    response = requests.post(url, data=data)
+    data = {"id":1,"method":"getforkheight","jsonrpc":"2.0","params":{}}
+    response = requests.post(url, json=data)
     obj = json.loads(response.text)
     if "result" in obj:
         obj = obj["result"]
