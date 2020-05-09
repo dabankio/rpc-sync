@@ -18,7 +18,7 @@ bbc = cdll.LoadLibrary('./libcrypto.so')
 bbc.GetAddr.argtypes = [c_char_p]
 bbc.GetAddr.restype = c_char_p
 
-url = 'http://127.0.0.1:9902'
+url = config.url
 connection = pymysql.connect(host=config.host, port=config.port, user=config.user, password=config.password, db=config.db)
 
 def log(fileName):
@@ -123,8 +123,8 @@ def RollBACK(block_hash):
 def Useful(block_hash):
     with connection.cursor() as cursor:
         #logging.info('\r\ngetblockdetail:' + block_hash)
-        data = '{"id":1,"method":"getblockdetail","jsonrpc":"2.0","params":{"block":"%s"}}' % block_hash
-        response = requests.post(url, data=data)
+        data = {"id":1,"method":"getblockdetail","jsonrpc":"2.0","params":{"block":block_hash}}
+        response = requests.post(url, json=data)
         obj = json.loads(response.text)
         if "result" in obj:
             obj = obj["result"]
@@ -215,7 +215,7 @@ def ExecTask(block_hash):
     db_res = GetUsefulBlock(block_hash)
     while db_res == None:
         task_add.append(block_hash)
-        data = {"id":1,"method":"getblock","jsonrpc":"2.0","params":{"block":"'+ block_hash +'"}}
+        data = {"id":1,"method":"getblock","jsonrpc":"2.0","params":{"block": block_hash}}
         response = requests.post(url, json = data)
         res = json.loads(response.text)
         if "result" in res:
@@ -245,8 +245,8 @@ def Getblockhash(height):
     return json.loads(response.text)
 
 def Getforkheight():
-    data = '{"id":1,"method":"getforkheight","jsonrpc":"2.0","params":{}}'
-    response = requests.post(url, data=data)
+    data = {"id":1,"method":"getforkheight","jsonrpc":"2.0","params":{}}
+    response = requests.post(url, json=data)
     obj = json.loads(response.text)
     if "result" in obj:
         obj = obj["result"]
@@ -257,7 +257,10 @@ def Getforkheight():
     if end_data == None:
         return 1
     if obj > end_data[2]:
-        return obj
+        if (end_data[2] + 10000) < obj:
+            return (end_data[2] + 10000)
+        else:
+            return obj
     else:
         return 0
 
