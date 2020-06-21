@@ -35,22 +35,6 @@ def ExecSql(sql):
     except Exception as e:
         return 0
 
-
-def GetTask():
-    with connection.cursor() as cursor:
-        sql = 'SELECT id,block_hash from Task where is_ok = 0 limit 1'
-        cursor.execute(sql)
-        connection.commit()
-        return cursor.fetchone()
-
-
-def SbumitTask(taskid):
-    with connection.cursor() as cursor:
-        sql = 'update Task set is_ok = 1 where id = %s' % taskid
-        cursor.execute(sql)
-        connection.commit()
-
-
 def GetBlock(block_hash):
     with connection.cursor() as cursor:
         sql = 'select `hash`,prev_hash,height from Block where hash = "%s"' % block_hash
@@ -84,11 +68,22 @@ def InsertTx(block_id,tx,cursor):
     client_in = None
     dpos_out = None
     client_out = None
+    '''
     if tx["sendto"][:4] == "20w0":
         dpos_in,client_in = GetVote(tx["sig"][0:132])
     if tx["sendfrom"][:4] == "20w0":
         dpos_out,client_out = GetVote(tx["sig"][-260:][:132])
-    
+    '''
+
+    if tx["sendto"][:4] == "20w0":    
+        dpos_in,client_in = GetVote(tx["sig"][0:132])
+    if tx["sendfrom"][:4] == "20w0":    
+        if tx["sendto"][:4] == "20w0":        
+            dpos_out,client_out = GetVote(tx["sig"][132:264])    
+        else:        
+            dpos_out,client_out = GetVote(tx["sig"][0:132])
+
+
     data = None
     if len(tx["data"]) > 0:
         data = tx["data"]
@@ -264,7 +259,31 @@ def Getforkheight():
     else:
         return 0
 
+def GetPool():
+    with connection.cursor() as cursor:
+        sql = "select address from pool"
+        cursor.execute(sql)
+        connection.commit()
+        return cursor.fetchall
+
+# listdelegate
+def GetListDelegate():
+    data = {"id":1,"method":"listdelegate","jsonrpc":"2.0","params":{}}
+    response = requests.post(url, json = data)
+    obj = json.loads(response.text)
+    if "result" in obj:
+        rows = GetPool()
+        print(rows)
+        for elem in obj["result"]:
+            if elem not in rows:
+                sql = "insert pool(address,name,type,`key`,fee)values(%s,%s,%s,%s,%s)"
+                cursor.execute(sql,elem,'','dpos','123456',0.05)
+        connection.commit() 
+    else:
+        return False
+
 if __name__ == '__main__':
+    #GetListDelegate()
     while True:
         height = Getforkheight()
         if height > 0:
