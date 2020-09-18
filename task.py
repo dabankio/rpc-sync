@@ -13,7 +13,9 @@ import logging
 
 from ctypes import *
 from binascii import a2b_hex
+from TokenDistribution import TokenDistribution
 
+td = TokenDistribution()
 bbc = cdll.LoadLibrary('./libcrypto.so')
 bbc.GetAddr.argtypes = [c_char_p]
 bbc.GetAddr.restype = c_char_p
@@ -137,7 +139,8 @@ def Useful(block_hash):
             InsertTx(block_hash,tx,cursor)
         InsertTx(block_hash,obj["txmint"],cursor)
         connection.commit()
-        return True
+    Check()
+    return True
 
 
 def GetEndData():
@@ -282,15 +285,33 @@ def GetListDelegate():
     else:
         return False
 
+def Check():
+    sql1 = "select sum(amount) as c from tx where spend_txid is null"
+    sql2 = "SELECT height from Block ORDER BY id DESC LIMIT 1"
+    with connection.cursor() as cursor :
+        cursor.execute(sql1)
+        connection.commit()
+        v2 = cursor.fetchone()[0]
+
+        cursor.execute(sql2)
+        connection.commit()
+        h = cursor.fetchone()[0]
+        print(h)
+        v1 = td.GetTotal(h)
+        if Decimal(v1) != v2:
+            print("money err",Decimal(v1),v2)
+            exit()
+    
 if __name__ == '__main__':
-    #GetListDelegate()
+    Check()
+    time.sleep(3)
     while True:
         height = Getforkheight()
         if height > 0:
             obj = Getblockhash(height)
             if "result" in obj:
                 blockHash = obj["result"][0]
-                ExecTask(blockHash) 
+                ExecTask(blockHash)
             else:
                 print("getblockhash error:",obj)   
             time.sleep(3)                    
