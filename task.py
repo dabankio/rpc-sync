@@ -94,8 +94,8 @@ def InsertTx(block_id,tx,cursor):
     sql = "insert Tx(block_hash,txid,form,`to`,amount,free,type,lock_until,n,data,dpos_in,client_in,dpos_out,client_out)values(%s,%s,%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s)"
     cursor.execute(sql,[block_id,tx["txid"], tx["sendfrom"],tx["sendto"],tx["amount"],tx["txfee"],tx["type"],tx["lockuntil"],data,dpos_in,client_in,dpos_out,client_out])
     
-    amount = Decimal(str(tx["amount"]))
-    txfee = Decimal(str(tx["txfee"]))
+    amount = Decimal(tx["amount"]).quantize(Decimal('0.000000')) # Decimal(str(tx["amount"]))
+    txfee = Decimal(tx["txfee"]).quantize(Decimal('0.000000')) #Decimal(str(tx["txfee"]))
     if in_money > (amount + txfee):
         amount = in_money - (amount  + txfee)
         sql = "insert Tx(block_hash,txid,form,`to`,amount,free,type,lock_until,n,data)values(%s,%s,%s,%s,%s,%s,%s,%s,1,%s)"
@@ -286,18 +286,18 @@ def GetListDelegate():
         return False
 
 def Check():
-    sql1 = "select sum(amount) as c from tx where spend_txid is null"
-    sql2 = "SELECT height from Block ORDER BY id DESC LIMIT 1"
+    sql1 = "SELECT height from Block ORDER BY id DESC LIMIT 1"
+    sql2 = "select sum(amount) as c from tx where spend_txid is null"
     with connection.cursor() as cursor :
         cursor.execute(sql1)
         connection.commit()
-        v2 = cursor.fetchone()[0]
-
+        h = cursor.fetchone()[0]
+        print(h,"check ...")
+        v1 = td.GetTotal(h)
         cursor.execute(sql2)
         connection.commit()
-        h = cursor.fetchone()[0]
-        print(h)
-        v1 = td.GetTotal(h)
+        v2 = cursor.fetchone()[0]
+
         if Decimal(v1) != v2:
             print("money err",Decimal(v1),v2)
             exit()
