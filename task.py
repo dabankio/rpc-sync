@@ -286,8 +286,9 @@ def GetListDelegate():
         return False
 
 def Check():
+    return
     sql1 = "SELECT height from Block ORDER BY id DESC LIMIT 1"
-    sql2 = "select sum(amount) as c from tx where spend_txid is null"
+    sql2 = "select sum(amount) as c from Tx where spend_txid is null"
     with connection.cursor() as cursor :
         cursor.execute(sql1)
         connection.commit()
