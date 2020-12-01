@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"strings"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/types"
 	"github.com/pkg/errors"
-	"github.com/shopspring/decimal"´
+	"github.com/shopspring/decimal"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -36,11 +37,14 @@ func main() {
 	pe(err)
 	defer db.Close()
 
-	client, err := bbrpc.NewClient(&bbrpc.ConnConfig{
+	client, err := bbrpc.NewClientWith(&bbrpc.ConnConfig{
 		Host:       conf.RPCUrl,
 		User:       conf.RPCUsr,
 		Pass:       conf.RPCPassword,
 		DisableTLS: true,
+	}, &http.Client{
+		Timeout:   time.Second * 15,
+		Transport: &http.Transport{MaxIdleConnsPerHost: 1},
 	})
 	pe(err)
 	defer client.Shutdown()
@@ -72,8 +76,6 @@ func main() {
 		}
 		pe(err)
 
-		// h, err := getForkHeight(db, client)
-		pe(err)
 		if execHeight > 0 {
 			blockHash, err := client.Getblockhash(execHeight, nil)
 			pe(err)
@@ -82,7 +84,7 @@ func main() {
 			if lowerHeight > safeHeight { //下限不会高于安全高度
 				lowerHeight = safeHeight
 			}
-			log.Printf("exec task %d (lower:%d)", execHeight, lowerHeight)
+			log.Printf("exec task %d (lower:%d)\n", execHeight, lowerHeight)
 			err = execTask(db, client, blockHash[0], lowerHeight)
 			pe(err)
 		} else {
