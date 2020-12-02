@@ -59,6 +59,7 @@ func main() {
 		if err != nil {
 			if err == sql.ErrNoRows { //创世高度
 				execHeight = 1
+				err = nil
 			} else {
 				panic(err)
 			}
@@ -75,7 +76,6 @@ func main() {
 				}
 			}
 		}
-		pe(err)
 
 		if execHeight > 0 {
 			blockHash, err := client.Getblockhash(execHeight, nil)
