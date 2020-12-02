@@ -168,8 +168,13 @@ func getBlock(db *sqlx.DB, blockHash string, useful *types.BitBool) (*Block, err
 	args := []interface{}{blockHash}
 	sql := "select * from Block where hash = ?"
 	if useful != nil {
-		sql += fmt.Sprintf(" and is_useful = ?")
-		args = append(args, *useful)
+		//不知道为什么 用 ? 不行
+		if *useful {
+			sql += fmt.Sprintf(" and is_useful = 1")
+		} else {
+			sql += fmt.Sprintf(" and is_useful = 0")
+		}
+		// args = append(args, *useful)
 	}
 	err := db.Get(&ret, sql, args...)
 	if err != nil {
@@ -189,7 +194,7 @@ func getVote(tplHex string) (dele, voter string) {
 	return del.String(), owner.String()
 }
 
-func getTx(db *sqlx.DB, sql string, args []interface{}) (tx Tx, err error) {
+func getTx(db *sqlx.Tx, sql string, args []interface{}) (tx Tx, err error) {
 	err = db.Get(&tx, sql, args...)
 	return
 }
@@ -197,15 +202,15 @@ func getTx(db *sqlx.DB, sql string, args []interface{}) (tx Tx, err error) {
 const voteAddrPrefix = "20w0"
 
 // 标记交易的输入tx的spend_txid,入库tx(每个vout会产生一条记录) TODO in transaction
-func insertTx(db *sqlx.DB, blockHash string, tx *bbrpc.NoneSerializedTransaction) error {
+func insertTx(dbTx *sqlx.Tx, blockHash string, tx *bbrpc.NoneSerializedTransaction) error {
 	vinAmount := decimal.NewFromInt(0)
 	for _, in := range tx.Vin {
-		inTx, err := getTx(db, "select id,amount,`to` from Tx where txid = ? and n = ?", []interface{}{in.Txid, in.Vout})
+		inTx, err := getTx(dbTx, "select id,amount,`to` from Tx where txid = ? and n = ?", []interface{}{in.Txid, in.Vout})
 		if err != nil {
 			return errors.Wrapf(err, "get tx:%s", in.Txid)
 		}
 		vinAmount = vinAmount.Add(inTx.Amount)
-		_, err = db.Exec("update Tx set spend_txid = ? where id = ?", tx.Txid, inTx.ID)
+		_, err = dbTx.Exec("update Tx set spend_txid = ? where id = ?", tx.Txid, inTx.ID)
 		if err != nil {
 			return errors.Wrap(err, "update spend tx")
 		}
@@ -227,7 +232,7 @@ func insertTx(db *sqlx.DB, blockHash string, tx *bbrpc.NoneSerializedTransaction
 	}
 	sql := "insert Tx(block_hash,txid,form,`to`,amount,free,type,lock_until,n,data,dpos_in,client_in,dpos_out,client_out)values(?,?,?,?,?,?,?,?,0,?,?,?,?,?)"
 	// [block_id,tx["txid"], tx["sendfrom"],tx["sendto"],tx["amount"],tx["txfee"],tx["type"],tx["lockuntil"],data,dpos_in,client_in,dpos_out,client_out]
-	_, err := db.Exec(sql, blockHash, tx.Txid, tx.Sendfrom, tx.Sendto, tx.Amount, tx.Txfee, tx.Type, tx.Lockuntil, data, dposIn, clientIn, dposOut, clientOut)
+	_, err := dbTx.Exec(sql, blockHash, tx.Txid, tx.Sendfrom, tx.Sendto, tx.Amount, tx.Txfee, tx.Type, tx.Lockuntil, data, dposIn, clientIn, dposOut, clientOut)
 	if err != nil {
 		return errors.Wrap(err, "insert tx")
 	}
@@ -235,7 +240,7 @@ func insertTx(db *sqlx.DB, blockHash string, tx *bbrpc.NoneSerializedTransaction
 	if amountFee.LessThan(vinAmount) {
 		amount := vinAmount.Sub(amountFee)
 		sql = "insert Tx(block_hash,txid,form,`to`,amount,free,type,lock_until,n,data)values(?,?,?,?,?,?,?,?,1,?)"
-		_, err := db.Exec(sql, blockHash, tx.Txid, tx.Sendfrom, tx.Sendfrom, amount, 0, tx.Type, 0, data)
+		_, err := dbTx.Exec(sql, blockHash, tx.Txid, tx.Sendfrom, tx.Sendfrom, amount, 0, tx.Type, 0, data)
 		if err != nil {
 			return errors.Wrap(err, "insert change tx")
 		}
@@ -246,37 +251,49 @@ func insertTx(db *sqlx.DB, blockHash string, tx *bbrpc.NoneSerializedTransaction
 //回滚单个块，标记无效，处理tx
 func rollBackBlock(db *sqlx.DB, blockHash string) error {
 	log.Println("rollback block:", blockHash)
+	err := runInTx(db, func(tx *sqlx.Tx) error {
+		var err error
+		_, err = tx.Exec(fmt.Sprintf("update Block set is_useful = 0 where `hash` = '%s'", blockHash))
+		if err != nil {
+			return err
+		}
+		var txs []Tx
+		err = tx.Select(&txs, fmt.Sprintf("SELECT txid from Tx where block_hash = '%s' ORDER BY id desc", blockHash))
+		if err != nil {
+			return err
+		}
+		for _, t := range txs {
+			_, err = tx.Exec(fmt.Sprintf("update Tx set spend_txid = null where spend_txid = '%s'", t.Txid))
+			if err != nil {
+				return err
+			}
+			_, err = tx.Exec(fmt.Sprintf("Delete from Tx where txid = '%s'", t.Txid))
+			if err != nil {
+				return err
+			}
+		}
+		return err
+	})
+	return err
+}
+
+func runInTx(db *sqlx.DB, fn func(*sqlx.Tx) error) error {
 	tx, err := db.Beginx()
 	if err != nil {
 		return err
 	}
+
 	defer func() {
-		if err != nil {
-			err = tx.Rollback()
+		if err := recover(); err != nil {
+			_ = tx.Rollback()
+			panic(err)
 		}
 	}()
-
-	_, err = tx.Exec(fmt.Sprintf("update Block set is_useful = 0 where `hash` = '%s'", blockHash))
-	if err != nil {
+	if err := fn(tx); err != nil {
+		_ = tx.Rollback()
 		return err
 	}
-	var txs []Tx
-	err = tx.Select(&txs, fmt.Sprintf("SELECT txid from Tx where block_hash = '%s' ORDER BY id desc", blockHash))
-	if err != nil {
-		return err
-	}
-	for _, t := range txs {
-		_, err = db.Exec(fmt.Sprintf("update Tx set spend_txid = null where spend_txid = '%s'", t.Txid))
-		if err != nil {
-			return err
-		}
-		_, err = db.Exec(fmt.Sprintf("Delete from Tx where txid = '%s'", t.Txid))
-		if err != nil {
-			return err
-		}
-	}
-	err = tx.Commit()
-	return err
+	return tx.Commit()
 }
 
 // 如果区块在库里存在则标记为useful, 否则入库block, 入库交易
@@ -287,31 +304,31 @@ func useful(db *sqlx.DB, client *bbrpc.Client, blockHash string) error {
 	}
 	log.Println("useful block", det.Height, blockHash)
 	_, err = getBlock(db, blockHash, nil)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			return errors.Wrap(err, "get block detail")
-		}
-		sql := "insert into Block(hash,prev_hash,time,height,reward_address,bits,reward_money,type,fork_hash) values(?,?,?,?,?,?,?,?,?)"
-		_, err = db.Exec(sql, det.Hash, det.HashPrev, det.Time, det.Height, det.Txmint.Sendto, det.Bits, det.Txmint.Amount, det.Type, det.Fork)
+
+	err = runInTx(db, func(dbTx *sqlx.Tx) error {
 		if err != nil {
-			return errors.Wrap(err, "insert block")
+			if err != sql.ErrNoRows {
+				return errors.Wrap(err, "get block detail")
+			}
+			sql := "insert into Block(hash,prev_hash,time,height,reward_address,bits,reward_money,type,fork_hash) values(?,?,?,?,?,?,?,?,?)"
+			_, err = dbTx.Exec(sql, det.Hash, det.HashPrev, det.Time, det.Height, det.Txmint.Sendto, det.Bits, det.Txmint.Amount, det.Type, det.Fork)
+			if err != nil {
+				return errors.Wrap(err, "insert block")
+			}
+		} else {
+			_, err = dbTx.Exec(fmt.Sprintf("update Block set is_useful = 1 where `hash` = '%s'", blockHash))
+			if err != nil {
+				return errors.Wrap(err, "update block")
+			}
 		}
-	} else {
-		_, err = db.Exec(fmt.Sprintf("update Block set is_useful = 1 where `hash` = '%s'", blockHash))
-		if err != nil {
-			return errors.Wrap(err, "update block")
+		for _, tx := range append(det.Tx, det.Txmint) {
+			err = insertTx(dbTx, blockHash, &tx)
+			if err != nil {
+				return errors.Wrap(err, "insert tx")
+			}
 		}
-	}
-	for _, tx := range det.Tx {
-		err = insertTx(db, blockHash, &tx)
-		if err != nil {
-			return errors.Wrap(err, "insert tx")
-		}
-	}
-	err = insertTx(db, blockHash, &det.Txmint)
-	if err != nil {
-		return errors.Wrap(err, "insert tx")
-	}
+		return err
+	})
 	check()
 	return nil
 }
@@ -434,7 +451,7 @@ func execTask(db *sqlx.DB, client *bbrpc.Client, blockHash string, lowerHeight i
 				return err
 			}
 			dbBlc = nil
-		}else { //找到了有效的块（dbBlc 非 nil）
+		} else { //找到了有效的块（dbBlc 非 nil）
 			break
 		}
 	}
@@ -453,28 +470,6 @@ func execTask(db *sqlx.DB, client *bbrpc.Client, blockHash string, lowerHeight i
 	}
 	return nil
 }
-
-// 当前节点高度（如果数据库差的多则数据库高度+10000 ？？
-// func getForkHeight(db *sqlx.DB, client *bbrpc.Client) (int64, error) {
-// 	rpcHeight, err := client.Getforkheight(nil)
-// 	if err != nil {
-// 		return 0, err
-// 	}
-// 	dbTopHeightBlk, err := getMaxHeightBlock(db)
-// 	if err != nil {
-// 		if err == sql.ErrNoRows {
-// 			return 1, nil
-// 		}
-// 		return 0, err
-// 	}
-// 	if int64(rpcHeight) > dbTopHeightBlk.Height {
-// 		if x := dbTopHeightBlk.Height + perBatchBlocks; x < int64(rpcHeight) { //10000
-// 			return x, nil
-// 		}
-// 		return int64(rpcHeight), nil
-// 	}
-// 	return 0, nil
-// }
 
 func getPool(db *sqlx.DB) (ret []string, err error) {
 	err = db.Select(&ret, "select address from pool")
