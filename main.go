@@ -85,6 +85,9 @@ func main() {
 			if lowerHeight > safeHeight { //下限不会高于安全高度
 				lowerHeight = safeHeight
 			}
+			if lowerHeight < 0 {
+				lowerHeight = 0
+			}
 			log.Printf("exec task %d (lower:%d)\n", execHeight, lowerHeight)
 			err = execTask(db, client, blockHash[0], lowerHeight)
 			pe(err)
