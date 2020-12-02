@@ -30,7 +30,7 @@ const (
 // CREATE DATABASE IF NOT EXISTS bbcsync default character set utf8mb4 collate utf8mb4_general_ci;
 // grant ALL PRIVILEGES on bbcsync.* to bbcsync;
 //
-// delete * from Block;
+// delete from Block;
 // delete from Tx;
 func main() {
 	conf := parseConf()
@@ -54,8 +54,8 @@ func main() {
 		var execHeight int
 		rpcHeight, err := client.Getforkheight(nil)
 		pe(err)
-		dbTopHeightBlk, err := getMaxHeightBlock(db)
-		dbHeight := int(dbTopHeightBlk.Height)
+		dbTopHeightBlc, err := getMaxHeightBlock(db)
+		dbHeight := int(dbTopHeightBlc.Height)
 		if err != nil {
 			if err == sql.ErrNoRows { //创世高度
 				execHeight = 1
@@ -196,7 +196,7 @@ func getTx(db *sqlx.DB, sql string, args []interface{}) (tx Tx, err error) {
 
 const voteAddrPrefix = "20w0"
 
-// 标记交易的输入tx的spend_txid,入库tx(每个vout会产生一条记录)
+// 标记交易的输入tx的spend_txid,入库tx(每个vout会产生一条记录) TODO in transaction
 func insertTx(db *sqlx.DB, blockHash string, tx *bbrpc.NoneSerializedTransaction) error {
 	vinAmount := decimal.NewFromInt(0)
 	for _, in := range tx.Vin {
@@ -245,6 +245,7 @@ func insertTx(db *sqlx.DB, blockHash string, tx *bbrpc.NoneSerializedTransaction
 
 //回滚单个块，标记无效，处理tx
 func rollBackBlock(db *sqlx.DB, blockHash string) error {
+	log.Println("rollback block:", blockHash)
 	tx, err := db.Beginx()
 	if err != nil {
 		return err
@@ -332,6 +333,7 @@ func getPrevBlock(db *sqlx.DB, blockHash string) (blk Block, err error) {
 
 //根据高块和入参的高度，回滚或标记块有效
 func updateState(db *sqlx.DB, client *bbrpc.Client, blc *Block) error {
+	log.Println("update state:", blc.Height, blc.Hash)
 	prevHash, height := blc.Hash, blc.Height
 	p3hash, p3height := prevHash, height
 
@@ -416,7 +418,7 @@ func execTask(db *sqlx.DB, client *bbrpc.Client, blockHash string, lowerHeight i
 	if err != nil && err != sql.ErrNoRows {
 		return err
 	}
-	for dbBlc == nil { //数据库没有这个区块,则尝试将blk绑定为前一个块,直到创世块
+	for { //数据库没有这个区块,则尝试将blk绑定为前一个块,直到创世块
 		taskAddHash = append(taskAddHash, blockHash)
 		rpcBlk, err := client.Getblock(blockHash)
 		if err != nil {
@@ -432,6 +434,8 @@ func execTask(db *sqlx.DB, client *bbrpc.Client, blockHash string, lowerHeight i
 				return err
 			}
 			dbBlc = nil
+		}else { //找到了有效的块（dbBlc 非 nil）
+			break
 		}
 	}
 	if dbBlc != nil {
