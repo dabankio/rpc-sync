@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/dabankio/bbrpc"
+	"github.com/dabankio/gobbc"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/types"
 	"github.com/pkg/errors"
@@ -174,9 +175,15 @@ func getBlock(db *sqlx.DB, blockHash string, useful *types.BitBool) (*Block, err
 	return &ret, nil
 }
 
-func getVote(tplHex string) (string, string) {
-	// TODO
-	return "not_impl: dposAddr", "client_addr"
+func getVote(tplHex string) (dele, voter string) {
+	if len(tplHex) != 132 {
+		panic("not vote info len 132")
+	}
+	del, err := gobbc.NewCDestinationFromString(tplHex[:66])
+	pe(err)
+	owner, err := gobbc.NewCDestinationFromString(tplHex[66:])
+	pe(err)
+	return del.String(), owner.String()
 }
 
 func getTx(db *sqlx.DB, sql string, args []interface{}) (tx Tx, err error) {
@@ -205,11 +212,11 @@ func insertTx(db *sqlx.DB, blockHash string, tx *bbrpc.NoneSerializedTransaction
 		dposIn, clientIn = getVote(tx.Sig[:132])
 	}
 	if strings.HasPrefix(tx.Sendfrom, voteAddrPrefix) {
+		tplData := tx.Sig[0:132]
 		if strings.HasPrefix(tx.Sendto, voteAddrPrefix) { //转投其他
-			dposOut, clientOut = getVote(tx.Sig[132:264])
-		} else {
-			dposOut, clientOut = getVote(tx.Sig[0:132])
+			tplData = tx.Sig[132:264]
 		}
+		dposOut, clientOut = getVote(tplData)
 	}
 	data := tx.Data
 	if len(data) >= 4096 {
