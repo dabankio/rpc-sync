@@ -78,7 +78,7 @@ def Export(height):
         cursor.execute("select addr,(a1 - a2) as a,(v1 - v2) as v from Vote")
         rows = cursor.fetchall()
         for r in rows:
-            if r[1] > 0 or r[2] > 0:
+            if (r[1] + r[2]) >= 100:
                 data.append({
                     "address": r[0],
                     "balance": float(r[1]),
