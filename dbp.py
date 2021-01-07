@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 '''
 参考地址 https://github.com/FissionAndFusion/FnFnCoreWallet/wiki/Socket%E6%8E%A5%E5%8F%A3%E5%8D%8F%E8%AE%AE
@@ -116,4 +116,5 @@ def Run():
     s.close()
 
 if __name__ == '__main__':
-    Run()
+    #Run()
+    print("OK")
