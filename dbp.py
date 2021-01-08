@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
 '''
 参考地址 https://github.com/FissionAndFusion/FnFnCoreWallet/wiki/Socket%E6%8E%A5%E5%8F%A3%E5%8D%8F%E8%AE%AE
@@ -88,7 +88,7 @@ def Run():
         print("nosub:",nosub)
 
     while True:
-        ret = s.recv(1024)
+        ret = s.recv(1024*1024)
         base = dbp_pb2.Base()
         base.ParseFromString(ret[4:])
         if base.msg == dbp_pb2.Msg.ADDED:
@@ -103,7 +103,8 @@ def Run():
                 block = lws_pb2.Block()
                 add.object.Unpack(block)
                 blid = hexlify(block.hash[::-1]).decode()
-                #task.ExecTask(blid)
+                #print(blid)
+                task.ExecTask(blid)
         
         if base.msg == dbp_pb2.Msg.PING:
             p = dbp_pb2.Pong()
@@ -116,5 +117,4 @@ def Run():
     s.close()
 
 if __name__ == '__main__':
-    #Run()
-    print("OK")
+    Run()
