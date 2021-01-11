@@ -75,7 +75,9 @@ def Run():
     l = struct.pack(">I", len(msg))
     s.send(l + msg)
 
-    ret = s.recv(1024)
+    ret_ = s.recv(4)
+    l = struct.unpack(">I",ret_)[0]
+    ret = s.recv(l)
     base = dbp_pb2.Base()
     base.ParseFromString(ret[4:])
     if base.msg == dbp_pb2.Msg.READY:
