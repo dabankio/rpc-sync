@@ -51,14 +51,14 @@ func main() {
 	defer client.Shutdown()
 
 	for {
-		var execHeight int
+		var syncToHeight int //需要同步到的高度, 如果同步高度与最新高度很大则从数据库高度+n， 否则处理到最新高度
 		rpcHeight, err := client.Getforkheight(nil)
 		pe(err)
 		dbTopHeightBlc, err := getMaxHeightBlock(db)
 		dbHeight := int(dbTopHeightBlc.Height)
 		if err != nil {
 			if err == sql.ErrNoRows { //创世高度
-				execHeight = 1
+				syncToHeight = 1
 				err = nil
 			} else {
 				panic(err)
@@ -66,19 +66,19 @@ func main() {
 		} else {
 			if rpcHeight < dbHeight {
 				panic(errors.Errorf("节点高度%d低于数据库最高记录%d", rpcHeight, dbHeight))
-			} else if rpcHeight == dbHeight {
-				execHeight = -1
+			} else if rpcHeight == dbHeight { //已经同步到最新高度了
+				syncToHeight = -1
 			} else {
 				if rpcHeight-dbHeight > perBatchBlocks { //高度差过大则扫n个块
-					execHeight = dbHeight + perBatchBlocks
+					syncToHeight = dbHeight + perBatchBlocks
 				} else {
-					execHeight = rpcHeight
+					syncToHeight = rpcHeight
 				}
 			}
 		}
 
-		if execHeight > 0 {
-			blockHash, err := client.Getblockhash(execHeight, nil)
+		if syncToHeight > 0 {
+			syncToHash, err := client.Getblockhash(syncToHeight, nil)
 			pe(err)
 			safeHeight := rpcHeight - safeConfirms
 			lowerHeight := dbHeight - 2   //随便减点，比dbHeight小就行
@@ -88,8 +88,8 @@ func main() {
 			if lowerHeight < 0 {
 				lowerHeight = 0
 			}
-			log.Printf("exec task %d (lower:%d)\n", execHeight, lowerHeight)
-			err = execTask(db, client, blockHash[0], lowerHeight)
+			log.Printf("exec task %d (lower:%d)\n", syncToHeight, lowerHeight)
+			err = execTask(db, client, syncToHash[0], lowerHeight)
 			pe(err)
 		} else {
 			log.Println("sleeping")
@@ -201,7 +201,8 @@ func getTx(db *sqlx.Tx, sql string, args []interface{}) (tx Tx, err error) {
 
 const voteAddrPrefix = "20w0"
 
-// 标记交易的输入tx的spend_txid,入库tx(每个vout会产生一条记录) TODO in transaction
+// 标记交易的输入tx的spend_txid
+// 入库tx(每个vout会产生一条记录)(如果是投票则处理相关字段)
 func insertTx(dbTx *sqlx.Tx, blockHash string, tx *bbrpc.NoneSerializedTransaction) error {
 	vinAmount := decimal.NewFromInt(0)
 	for _, in := range tx.Vin {
@@ -306,21 +307,24 @@ func useful(db *sqlx.DB, client *bbrpc.Client, blockHash string) error {
 	_, err = getBlock(db, blockHash, nil)
 
 	err = runInTx(db, func(dbTx *sqlx.Tx) error {
+		//先处理block
 		if err != nil {
 			if err != sql.ErrNoRows {
 				return errors.Wrap(err, "get block detail")
 			}
+			//这个块在数据库里没有
 			sql := "insert into Block(hash,prev_hash,time,height,reward_address,bits,reward_money,type,fork_hash) values(?,?,?,?,?,?,?,?,?)"
 			_, err = dbTx.Exec(sql, det.Hash, det.HashPrev, det.Time, det.Height, det.Txmint.Sendto, det.Bits, det.Txmint.Amount, det.Type, det.Fork)
 			if err != nil {
 				return errors.Wrap(err, "insert block")
 			}
-		} else {
+		} else { //这个块在数据库里已经存在了
 			_, err = dbTx.Exec(fmt.Sprintf("update Block set is_useful = 1 where `hash` = '%s'", blockHash))
 			if err != nil {
 				return errors.Wrap(err, "update block")
 			}
 		}
+		// 再处理tx
 		for _, tx := range append(det.Tx, det.Txmint) {
 			err = insertTx(dbTx, blockHash, &tx)
 			if err != nil {
@@ -348,11 +352,13 @@ func getPrevBlock(db *sqlx.DB, blockHash string) (blk Block, err error) {
 	return
 }
 
-//根据高块和入参的高度，回滚或标记块有效
-func updateState(db *sqlx.DB, client *bbrpc.Client, blc *Block) error {
-	log.Println("update state:", blc.Height, blc.Hash)
-	prevHash, height := blc.Hash, blc.Height
-	p3hash, p3height := prevHash, height
+//根据高块和【当前找到的最高有效块】的高度，回滚或标记块有效
+//usefulBlc 【当前找到的最高有效块】
+//如果有效块低于高块， 高块到有效块之间的块要标记失效
+func updateState(db *sqlx.DB, client *bbrpc.Client, usefulBlc *Block) error {
+	log.Println("update state:", usefulBlc.Height, usefulBlc.Hash)
+	prevHash, height := usefulBlc.Hash, usefulBlc.Height
+	p3hash, _ := prevHash, height
 
 	rollBackHash, useBlockHash := []string{}, []string{}
 	endBlock, err := getMaxHeightBlock(db)
@@ -360,10 +366,10 @@ func updateState(db *sqlx.DB, client *bbrpc.Client, blc *Block) error {
 		return err
 	}
 	p2hash, p2height := endBlock.Hash, endBlock.Height
-	if p2hash == p3hash { //这个块就是库中的最高块
+	if endBlock.Hash == p3hash { //这个块就是库中的最高块
 		return nil
 	}
-	if p2height > p3height { //库中最高块高于入参块，则库中新块要回滚（直到入参height）
+	if endBlock.Height > usefulBlc.Height { //库中最高块高于【当前找到的最高有效块】，则库中新块(【当前找到的最高有效块】到库中的最高块)要回滚
 		rollBackHash = append(rollBackHash, p2hash)
 		for {
 			prevBlock, err := getPrevBlock(db, p2hash)
@@ -371,20 +377,21 @@ func updateState(db *sqlx.DB, client *bbrpc.Client, blc *Block) error {
 				return err
 			}
 			p2hash, p2height = prevBlock.Hash, prevBlock.Height
-			if p2height == p3height {
+			if p2height == usefulBlc.Height {
 				break
 			}
 			rollBackHash = append(rollBackHash, p2hash)
 		}
-	} else if p3height > p2height { //入参高于数据库高块，则直到高块都为有效块
+	} else if usefulBlc.Height > endBlock.Height { //【当前找到的最高有效块】高于数据库高块，则直到高块都为有效块
+		prevHeight := usefulBlc.Height
 		useBlockHash = append(useBlockHash, p3hash)
 		for {
 			prevBlock, err := getPrevBlock(db, p3hash)
 			if err != nil {
 				return err
 			}
-			p3height = prevBlock.Height
-			if p3height == p2height {
+			prevHeight = prevBlock.Height
+			if prevHeight == endBlock.Height {
 				break
 			}
 			p3hash = prevBlock.Hash
@@ -428,24 +435,25 @@ func updateState(db *sqlx.DB, client *bbrpc.Client, blc *Block) error {
 
 var usefulBlockBool = types.BitBool(true)
 
-func execTask(db *sqlx.DB, client *bbrpc.Client, blockHash string, lowerHeight int) error {
-	taskAddHash := []string{}
+// lowerHeight 比数据库最新高度低，比安全高度低
+func execTask(db *sqlx.DB, client *bbrpc.Client, sync2blockHash string, lowerHeight int) error {
+	blockHashsNeed2sync := []string{} //需要同步的区块hash
 	var dbBlc *Block
-	dbBlc, err := getBlock(db, blockHash, &usefulBlockBool)
+	dbBlc, err := getBlock(db, sync2blockHash, &usefulBlockBool) //如果数据库没有同步到这个block,那么此时dbBlc是nil
 	if err != nil && err != sql.ErrNoRows {
 		return err
 	}
-	for { //数据库没有这个区块,则尝试将blk绑定为前一个块,直到创世块
-		taskAddHash = append(taskAddHash, blockHash)
-		rpcBlk, err := client.Getblock(blockHash)
+	for { //loop 从sync2blockHash往前找，直到 创世块或lowerHeight或者在数据库找到了有效的块， 中间的blockHash 为需要同步的区块
+		blockHashsNeed2sync = append(blockHashsNeed2sync, sync2blockHash)
+		rpcBlk, err := client.Getblock(sync2blockHash)
 		if err != nil {
 			return err
 		}
-		if rpcBlk.Height == 1 || rpcBlk.Height <= uint(lowerHeight) { //创世块
+		if rpcBlk.Height == 1 || rpcBlk.Height <= uint(lowerHeight) { //创世块, 或者达到安全高度
 			break
 		}
-		blockHash = rpcBlk.Prev
-		dbBlc, err = getBlock(db, blockHash, &usefulBlockBool)
+		sync2blockHash = rpcBlk.Prev
+		dbBlc, err = getBlock(db, sync2blockHash, &usefulBlockBool)
 		if err != nil {
 			if err != sql.ErrNoRows {
 				return err
@@ -455,15 +463,16 @@ func execTask(db *sqlx.DB, client *bbrpc.Client, blockHash string, lowerHeight i
 			break
 		}
 	}
-	if dbBlc != nil {
+
+	if dbBlc != nil { //在数据库找到了有效的块
 		if err = updateState(db, client, dbBlc); err != nil {
 			return err
 		}
 	}
-	for i, j := 0, len(taskAddHash)-1; i < j; i, j = i+1, j-1 { //reverse
-		taskAddHash[i], taskAddHash[j] = taskAddHash[j], taskAddHash[i]
+	for i, j := 0, len(blockHashsNeed2sync)-1; i < j; i, j = i+1, j-1 { //reverse
+		blockHashsNeed2sync[i], blockHashsNeed2sync[j] = blockHashsNeed2sync[j], blockHashsNeed2sync[i]
 	}
-	for _, useHash := range taskAddHash {
+	for _, useHash := range blockHashsNeed2sync {
 		if err = useful(db, client, useHash); err != nil {
 			return errors.Wrap(err, "useful err")
 		}

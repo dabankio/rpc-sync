@@ -167,16 +167,16 @@ def UpdateState(prev_hash,height):
     RollBack = []
     UseBlock = []
     end_data = GetEndData()
-    p2_hash = end_data[0]
-    p2_height = end_data[2]
+    p2_hash = end_data[0] #hash
+    p2_height = end_data[2] #height
     if p2_hash == p3_hash:
         return
     if p2_height > p3_height:
         RollBack.append(p2_hash)
         while True:
             res = GetPrev(p2_hash)
-            p2_height = res[2]
-            p2_hash = res[0]
+            p2_height = res[2] #height
+            p2_hash = res[0] #hash
             if res[2] == p3_height:
                 break
             RollBack.append(p2_hash)
@@ -227,7 +227,7 @@ def ExecTask(block_hash):
             break
         db_res = GetUsefulBlock(block_hash)
     if db_res != None:
-        UpdateState(db_res[0],db_res[2])
+        UpdateState(db_res[0],db_res[2]) #0: hash, 2: height
 
     task_add.reverse()
     for use_hash in task_add:
