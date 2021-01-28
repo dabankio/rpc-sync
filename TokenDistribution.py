@@ -31,4 +31,4 @@ class TokenDistribution:
 
     def PrintInfo(self):
         for obj in self.m_ltd:
-            print obj
+            print(obj)

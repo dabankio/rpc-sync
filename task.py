@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
 
 import requests
@@ -27,6 +27,9 @@ def log(fileName):
     logging.basicConfig(filename=fileName,filemode='a',level=logging.INFO,format='%(asctime)s %(levelname)s %(message)s')
     
 log('log_task.log')
+
+def InsertTxPool(txid):
+    print(txid)
 
 def ExecSql(sql):
     try:
