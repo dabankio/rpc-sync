@@ -1,5 +1,6 @@
 {
-    "db": "usr:bbc@tcp(192.168.0.5:3306)/dbname?tls=false&autocommit=true",
+    "db": "mysql_usr:bbc@tcp(192.168.0.5:3306)/dbname?tls=false&autocommit=true",
+    "db_pg": "postgres://usr:password@localhost/pqgotest?sslmode=",
     "rpc_user": "",
     "rpc_url": "",
     "rpc_password": ""

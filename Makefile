@@ -6,3 +6,6 @@ test:
 	go test
 fmt:
 	go fmt
+
+wire:
+	cd sync && wire
