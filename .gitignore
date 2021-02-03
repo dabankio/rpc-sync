@@ -5,3 +5,5 @@ log_task.log
 
 *.bin
 *.env.*
+
+*.log

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"io/ioutil"
+	"log"
 
 	"github.com/dabankio/bbrpc"
 )
@@ -17,9 +18,9 @@ type Conf struct {
 
 func NewBBCClient(conf Conf) (*bbrpc.Client, error) {
 	return bbrpc.NewClient(&bbrpc.ConnConfig{
-		Host: conf.RPCUrl,
-		User: conf.RPCUrl,
-		Pass: conf.RPCPassword,
+		Host:       conf.RPCUrl,
+		User:       conf.RPCUsr,
+		Pass:       conf.RPCPassword,
 		DisableTLS: true,
 	})
 }
@@ -33,5 +34,6 @@ func ParseConf() (c Conf) {
 	b, err := ioutil.ReadFile(confFile)
 	PanicErr(err)
 	PanicErr(json.Unmarshal(b, &c))
+	log.Println("conf loaded from : ", confFile)
 	return
 }

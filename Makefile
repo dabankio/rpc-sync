@@ -5,7 +5,7 @@ build:
 test:
 	go test
 fmt:
-	go fmt
+	go fmt ./...
 
 wire:
 	cd sync && wire

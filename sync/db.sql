@@ -11,7 +11,7 @@ create table if not exists blocks (
     fork text not null,
     coinbase numeric(12,6) not null,
     miner text not null,
-    tx_count smallint not null,
+    tx_count smallint not null
 ) without oids;
 
 create table txs (
@@ -40,3 +40,7 @@ create table dpos_vote (
     voter text not null,
     amount numeric not null
 ) without oids;
+
+alter table blocks owner to bbcrpc_sync_usr;
+alter table txs owner to bbcrpc_sync_usr;
+alter table dpos_vote owner to bbcrpc_sync_usr;

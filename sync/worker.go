@@ -94,7 +94,7 @@ func (w *Worker) sync2latest(ctx context.Context) error {
 			return err
 		}
 	} else {
-		nextBlockHeight = lastBlock.Height
+		nextBlockHeight = lastBlock.Height + 1
 	}
 
 	topHeight, err := w.client.Getforkheight(nil)
@@ -118,6 +118,14 @@ func (w *Worker) sync2latest(ctx context.Context) error {
 	rpcCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go func(_ctx context.Context) {
+		fnSend := func(x detailOrErr) {
+			select {
+			case <-_ctx.Done():
+				return
+			default: //do nothing
+				detailChan <- x
+			}
+		}
 		for ; nextBlockHeight <= uint64(topHeight); nextBlockHeight++ {
 			select {
 			case <-_ctx.Done():
@@ -126,21 +134,21 @@ func (w *Worker) sync2latest(ctx context.Context) error {
 			}
 			hash, err := w.client.Getblockhash(int(nextBlockHeight), nil)
 			if err != nil {
-				detailChan <- detailOrErr{err: errors.Wrap(err, "getblock hash err")}
+				fnSend(detailOrErr{err: errors.Wrap(err, "getblock hash err")})
 				return
 			}
 			if len(hash) == 0 {
-				detailChan <- detailOrErr{err: errors.Errorf("no block hash %d", nextBlockHeight)}
+				fnSend(detailOrErr{err: errors.Errorf("no block hash %d", nextBlockHeight)})
 				return
 			}
 			detail, err := w.client.Getblockdetail(hash[0])
 			if err != nil {
-				detailChan <- detailOrErr{err: errors.Wrap(err, "get block detail err")}
+				fnSend(detailOrErr{err: errors.Wrap(err, "get block detail err")})
 				return
 			}
-			detailChan <- detailOrErr{detail: detail}
+			fnSend(detailOrErr{detail: detail})
 		}
-		detailChan <- detailOrErr{detail: nil}
+		fnSend(detailOrErr{detail: nil})
 	}(rpcCtx)
 
 	for {
@@ -168,11 +176,11 @@ func (w *Worker) saveBlock(bd *bbrpc.BlockDetail) error {
 	return runInTx(w.repo.db, func(tx *sqlx.Tx) error {
 		err := w.repo.insertBlock(tx, NewBlock(bd))
 		if err != nil {
-			return err
+			return errors.Wrap(err, "insert block err")
 		}
 		for _, t := range NewTxsFromBlock(bd) {
 			if err = w.repo.insertTx(tx, t); err != nil {
-				return err
+				return errors.Wrap(err, "insert tx err")
 			}
 		}
 		return err

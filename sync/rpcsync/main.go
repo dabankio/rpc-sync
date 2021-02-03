@@ -13,12 +13,14 @@ import (
 )
 
 func main() {
+	log.Println("started")
 	tick := time.Tick(time.Minute)
 
 	closeChan := make(chan os.Signal)
 
 	worker, err := sync.InitializeWorker()
 	sync.PanicErr(err)
+	log.Println("worker initialized")
 
 	// signal.Notify(closeChan, os.Interrupt, os.Kill)
 	signal.Notify(closeChan, syscall.SIGINT, syscall.SIGKILL)
@@ -43,8 +45,8 @@ func main() {
 			}()
 		case <-closeChan:
 			stopCount++
-			if stopCount < 5 {
-				log.Println("stop count:", stopCount, " [count 5 to quit]")
+			if stopCount < 3 {
+				log.Println("stop count:", stopCount, " [count 3 to quit]")
 			} else {
 				log.Println("[quit]")
 				return
