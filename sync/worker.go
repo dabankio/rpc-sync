@@ -34,6 +34,7 @@ func (w *Worker) Stop(ctx context.Context) {
 
 func (w *Worker) Sync(ctx context.Context) {
 	log.Println("worker sync")
+	defer log.Println("sync done")
 
 	err := w.removeForkedBlocks()
 	if err != nil {
@@ -102,6 +103,7 @@ func (w *Worker) sync2latest(ctx context.Context) error {
 		return errors.Wrap(err, "get top height err")
 	}
 	if uint64(topHeight) < nextBlockHeight { //没有新的块
+		log.Println("no new block")
 		return nil
 	}
 	log.Printf("will sync, %d - %d\n", nextBlockHeight, topHeight)
@@ -160,7 +162,7 @@ func (w *Worker) sync2latest(ctx context.Context) error {
 				return err
 			}
 			if detailErr.detail == nil {
-				break
+				return nil
 			}
 			err = w.saveBlock(detailErr.detail)
 			if err != nil {
@@ -168,7 +170,6 @@ func (w *Worker) sync2latest(ctx context.Context) error {
 			}
 		}
 	}
-	return nil
 }
 
 func (w *Worker) saveBlock(bd *bbrpc.BlockDetail) error {

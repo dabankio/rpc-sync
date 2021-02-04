@@ -5,6 +5,8 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
+	"net/http"
+	"time"
 
 	"github.com/dabankio/bbrpc"
 )
@@ -17,12 +19,16 @@ type Conf struct {
 }
 
 func NewBBCClient(conf Conf) (*bbrpc.Client, error) {
-	return bbrpc.NewClient(&bbrpc.ConnConfig{
+	httpClient := &http.Client{
+		Timeout:   30 * time.Second,
+		Transport: &http.Transport{MaxConnsPerHost: 1},
+	}
+	return bbrpc.NewClientWith(&bbrpc.ConnConfig{
 		Host:       conf.RPCUrl,
 		User:       conf.RPCUsr,
 		Pass:       conf.RPCPassword,
 		DisableTLS: true,
-	})
+	}, httpClient)
 }
 
 func ParseConf() (c Conf) {

@@ -1,1 +1,1 @@
-go build -o sync.bin
+go build -o sync.bin -ldflags "-s -w"

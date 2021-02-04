@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -11,8 +12,14 @@ import (
 	"github.com/pkg/errors"
 )
 
+var cachedFieldMap sync.Map
+
 func setDBMapper(db *sqlx.DB) {
 	db.MapperFunc(func(s string) string { //snake_case
+		v, ok := cachedFieldMap.Load(s)
+		if ok {
+			return v.(string)
+		}
 		var ret string
 		for i, r := range s {
 			if r >= 'A' && r <= 'Z' && i > 0 {
@@ -20,6 +27,7 @@ func setDBMapper(db *sqlx.DB) {
 			}
 			ret += strings.ToLower(string(r))
 		}
+		cachedFieldMap.Store(s, ret)
 		return ret
 	})
 }
@@ -82,8 +90,8 @@ func (r *Repo) insertTx(dbTx *sqlx.Tx, tx Tx) error {
 	_, err := dbTx.Exec(`insert into txs (block_height, txid, "version", typ, time, lockuntil, anchor, block_hash,
 		send_from, send_to, amount, txfee, data, sig, fork, vin) values 
 		($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, $11, $12, $13, $14, $15, $16)`,
-		tx.BlockHeight, tx.Txid, tx.Version, tx.Typ, tx.Time, tx.Lockuntil, tx.Anchor, tx.Blockhash,
-		tx.Sendfrom, tx.Sendto, tx.Amount, tx.Txfee, tx.Data, tx.Sig, tx.Fork, tx.Vin,
+		tx.BlockHeight, tx.Txid, tx.Version, tx.Typ, tx.Time, tx.Lockuntil, tx.Anchor, tx.BlockHash,
+		tx.SendFrom, tx.SendTo, tx.Amount, tx.Txfee, tx.Data, tx.Sig, tx.Fork, tx.Vin,
 	)
 	if err != nil {
 		return errors.Wrap(err, "insert tx err")
