@@ -14,6 +14,8 @@ create table if not exists blocks (
     tx_count smallint not null
 ) without oids;
 
+create index if not exists idx_block_time on blocks using btree (time);
+
 create table txs (
     block_height integer REFERENCES blocks(height),
     txid text not null,
@@ -41,6 +43,26 @@ create table dpos_vote (
     amount numeric not null
 ) without oids;
 
+create table vote_sum ( --中间表，数据可按高度(block_height)删除
+    block_height integer REFERENCES blocks(height),
+    last_height integer not null,
+    delegate text not null,
+    voter text not null,
+    amount numeric check(amount >= 0),
+    CONSTRAINT unq_at_height unique(block_height, delegate, voter),
+    CONSTRAINT last_height_let_block_height check(last_height <= block_height)
+) without oids;
+
+create table day_reward (
+    day date not null,
+    delegate text not null,
+    voter text not null,
+    amount numeric,
+    CONSTRAINT unq_day_delegate_voter unique(day, delegate, voter)
+) without oids;
+
 alter table blocks owner to bbcrpc_sync_usr;
 alter table txs owner to bbcrpc_sync_usr;
 alter table dpos_vote owner to bbcrpc_sync_usr;
+alter table vote_sum owner to bbcrpc_sync_usr;
+alter table day_reward owner to bbcrpc_sync_usr;

@@ -70,3 +70,28 @@ func (r *Repo) deleteBlock(tx *sqlx.Tx, height uint64) error {
 	}
 	return nil
 }
+
+// VotesAtHeight 某一区块的投票数据
+func (r *Repo) VotesAtHeight(height int) (items []DposVote, err error) {
+	err = r.db.Select(&items, `select * from dpos_vote where block_height = $1`, height)
+	return
+}
+
+// [from, to] (含from, to)高度区间内的区块
+func (r *Repo) BlocksBetweenHeight(fromHeight, toHeight uint64) (items []Block, err error) {
+	err = r.db.Select(&items, `
+	select * from blocks 
+	where height >= $1 and height <= $2 
+	order by height`,
+		fromHeight, toHeight)
+	return
+}
+
+// 2个高度间(含端点)的投票详情
+func (r *Repo) DposVotesBetweenHeight(fromHeight, toHeight uint64) (items []DposVote, err error) {
+	if fromHeight > toHeight {
+		return nil, errors.New("from height is greater than to")
+	}
+	err = r.db.Select(&items, `select * from dpos_vote where block_height >= $1 and block_height <= $2`, fromHeight, toHeight)
+	return
+}

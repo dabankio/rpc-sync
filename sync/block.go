@@ -9,9 +9,9 @@ import (
 type ConsensusType string
 
 const (
-	ConsensusTypePow     ConsensusType = "pow"     //primary-pow
-	ConsensusTypeDpos    ConsensusType = "dpos"    //primary-dpos
-	ConsensusTypeGenesis ConsensusType = "genesis" //genesis
+	ConsensusTypePow     ConsensusType = "primary-pow"
+	ConsensusTypeDpos    ConsensusType = "primary-dpos"
+	ConsensusTypeGenesis ConsensusType = "genesis"
 )
 
 type Block struct {

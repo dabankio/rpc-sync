@@ -10,6 +10,6 @@ import (
 )
 
 func InitializeWorker() (*sync.Worker, error) {
-	wire.Build(sync.NewWorker, sync.NewRepo, infra.NewPGDB, infra.NewBBCClient, infra.ParseConf)
+	wire.Build(sync.Module, infra.Module)
 	return &sync.Worker{}, nil
 }
