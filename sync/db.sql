@@ -17,7 +17,7 @@ create table if not exists blocks (
 create table txs (
     block_height integer REFERENCES blocks(height),
     txid text not null,
-    version smallint,
+    version integer,
     typ text not null,
     time timestamp with time zone,
     lockuntil integer,

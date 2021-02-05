@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"bbcsyncer/infra"
 	"context"
 	"database/sql"
 	"log"
@@ -71,7 +72,7 @@ func (w *Worker) removeForkedBlocks() error {
 		}
 		if block.Hash != checkBlock.Hash {
 			log.Println("block_deleted, height: ", checkBlock.Height)
-			err = runInTx(w.repo.db, func(tx *sqlx.Tx) error {
+			err = infra.RunInTx(w.repo.db, func(tx *sqlx.Tx) error {
 				return w.repo.deleteBlock(tx, checkBlock.Height)
 			})
 			if err != nil {
@@ -174,7 +175,7 @@ func (w *Worker) sync2latest(ctx context.Context) error {
 
 func (w *Worker) saveBlock(bd *bbrpc.BlockDetail) error {
 	log.Printf("save_block %d %s, tx count: %d", bd.Height, bd.Hash, len(bd.Tx))
-	return runInTx(w.repo.db, func(tx *sqlx.Tx) error {
+	return infra.RunInTx(w.repo.db, func(tx *sqlx.Tx) error {
 		err := w.repo.insertBlock(tx, NewBlock(bd))
 		if err != nil {
 			return errors.Wrap(err, "insert block err")

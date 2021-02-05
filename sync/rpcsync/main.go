@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"bbcsyncer/sync"
+	"bbcsyncer/infra"
 )
 
 func main() {
@@ -18,8 +18,8 @@ func main() {
 
 	closeChan := make(chan os.Signal)
 
-	worker, err := sync.InitializeWorker()
-	sync.PanicErr(err)
+	worker, err := InitializeWorker()
+	infra.PanicErr(err)
 	log.Println("worker initialized")
 
 	// signal.Notify(closeChan, os.Interrupt, os.Kill)

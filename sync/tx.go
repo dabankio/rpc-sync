@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"bbcsyncer/infra"
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
@@ -96,7 +97,7 @@ var _ sql.Scanner = (*VinPoints)(nil)
 // Scan implements the sql.Scanner interface for database deSerialization.
 func (vps *VinPoints) Scan(src interface{}) error {
 	var x VinPoints
-	err := TryUnmarshal(src, &x)
+	err := infra.TryUnmarshal(src, &x)
 	*vps = x
 	return err
 }
@@ -113,9 +114,9 @@ func getVote(tplHex string) (delegate, voter string) {
 		panic("not vote info len 132")
 	}
 	del, err := gobbc.NewCDestinationFromHexString(tplHex[:66])
-	PanicErr(err)
+	infra.PanicErr(err)
 	owner, err := gobbc.NewCDestinationFromHexString(tplHex[66:])
-	PanicErr(err)
+	infra.PanicErr(err)
 	return del.String(), owner.String()
 }
 
@@ -278,7 +279,7 @@ func (tx Tx) DposVotes() (votes []DposVote) {
 		case delegateAddrPrefix_20m0:
 			appendVote(to, to, amount)
 		case voteAddrPrefix_20w0:
-			d, v := getVote(tx.Sig[132:])
+			d, v := getVote(tx.Sig[:132])
 			appendVote(d, v, amount)
 		default:
 		}

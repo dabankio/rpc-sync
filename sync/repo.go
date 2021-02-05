@@ -1,71 +1,11 @@
 package sync
 
 import (
-	"context"
-	"log"
-	"strings"
-	"sync"
-	"time"
+	"bbcsyncer/infra"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
 )
-
-var cachedFieldMap sync.Map
-
-func setDBMapper(db *sqlx.DB) {
-	db.MapperFunc(func(s string) string { //snake_case
-		v, ok := cachedFieldMap.Load(s)
-		if ok {
-			return v.(string)
-		}
-		var ret string
-		for i, r := range s {
-			if r >= 'A' && r <= 'Z' && i > 0 {
-				ret += "_"
-			}
-			ret += strings.ToLower(string(r))
-		}
-		cachedFieldMap.Store(s, ret)
-		return ret
-	})
-}
-
-func runInTx(db *sqlx.DB, fn func(*sqlx.Tx) error) error {
-	tx, err := db.Beginx()
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if err := recover(); err != nil {
-			_ = tx.Rollback()
-			panic(err)
-		}
-	}()
-	if err := fn(tx); err != nil {
-		_ = tx.Rollback()
-		return err
-	}
-	return tx.Commit()
-}
-
-func NewMysqlDB(conf Conf) (*sqlx.DB, error) {
-	return sqlx.Connect("mysql", conf.DB)
-}
-
-func NewPGDB(conf Conf) (*sqlx.DB, error) {
-	log.Println("connecting db...")
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	db, err := sqlx.ConnectContext(ctx, "postgres", conf.DB)
-	if err != nil {
-		return nil, err
-	}
-	setDBMapper(db)
-	return db, nil
-}
 
 func NewRepo(db *sqlx.DB) *Repo { return &Repo{db: db} }
 
@@ -76,7 +16,7 @@ type Repo struct {
 func (r *Repo) lastestSyncedBlock() (Block, error) {
 	var blc Block
 	err := r.db.Get(&blc, "select * from blocks order by height desc limit 1")
-	return blc, WrapErr(err, "db get latest synced block err")
+	return blc, infra.WrapErr(err, "db get latest synced block err")
 }
 
 func (r *Repo) insertBlock(tx *sqlx.Tx, b Block) error {
@@ -98,13 +38,23 @@ func (r *Repo) insertTx(dbTx *sqlx.Tx, tx Tx) error {
 	}
 	votes := tx.DposVotes()
 	for _, v := range votes {
-		_, err = dbTx.Exec(`insert into dpos_vote (block_height, txid, delegate, voter, amount) values ($1, $2, $3, $4, $5)`,
-			v.BlockHeight, v.Txid, v.Delegate, v.Voter, v.Amount)
+		err = r.InsertVote(dbTx, v)
 		if err != nil {
 			return errors.Wrap(err, "insert vote err")
 		}
 	}
 	return nil
+}
+
+func (r *Repo) InsertVote(dbTx *sqlx.Tx, v DposVote) (err error) {
+	const sql = `insert into dpos_vote (block_height, txid, delegate, voter, amount) values ($1, $2, $3, $4, $5)`
+	args := []interface{}{v.BlockHeight, v.Txid, v.Delegate, v.Voter, v.Amount}
+	if dbTx != nil {
+		_, err = dbTx.Exec(sql, args...)
+	} else {
+		_, err = r.db.Exec(sql, args...)
+	}
+	return
 }
 
 //移除块数据：块、交易、投票数据

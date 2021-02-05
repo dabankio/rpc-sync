@@ -2,8 +2,6 @@ package main
 
 import (
 	"testing"
-
-	_ "github.com/go-sql-driver/mysql"
 )
 
 func Test_getVote(t *testing.T) {

@@ -1,4 +1,4 @@
-package sync
+package infra
 
 import (
 	"encoding/json"

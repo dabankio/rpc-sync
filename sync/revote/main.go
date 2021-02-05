@@ -1,38 +1,56 @@
 package main
 
 import (
+	"bbcsyncer/infra"
 	"bbcsyncer/sync"
 	"log"
 	"os"
+	"time"
 )
 
-//之前的投票计算算法有问题，重新算投票数据
-// delete from dpos_vote;
+//删除投票数据，根据原始tx重新算投票数据
 func main() {
-	const height_per_query = 100
-	cursor := 0
-
-	var maxHeight = 636519 //select max(height) + 100 from blocks;
-	db, err := sync.NewPGDB(sync.Conf{
+	db, err := infra.NewPGDB(infra.Conf{
 		DB: os.Getenv("DEV_DB"),
 	})
-	sync.PanicErr(err)
+	infra.PanicErr(err)
+	repo := sync.NewRepo(db)
 
-	for ; cursor < maxHeight; cursor += height_per_query {
-		log.Printf("%d~%d\n", cursor, cursor+height_per_query)
+	{ //delete old logs
+		log.Println("警告：10s后删除dpos_vote数据")
+		time.Sleep(10 * time.Second)
+		ret, err := db.Exec("delete from dpos_vote")
+		infra.PanicErr(err)
+		rowsDeleted, err := ret.RowsAffected()
+		infra.PanicErr(err)
+		log.Println("rows deleted: ", rowsDeleted)
+	}
 
+	const height_per_query = 100
+	var maxHeight int
+	{ //get max height of blocks
+		err = db.Get(&maxHeight, "select max(height) from blocks")
+		infra.PanicErr(err)
+		maxHeight += height_per_query
+	}
+
+	log.Println("max height:", maxHeight)
+	cursor := 0
+	for ; cursor <= maxHeight; cursor += height_per_query {
 		var txs []sync.Tx
-		err := db.Select(&txs, `select block_height, txid, amount, txfee, typ, send_from, send_to, sig from txs where block_height >= $1 and block_height < $2`, cursor, cursor+height_per_query)
-		sync.PanicErr(err)
-		log.Println("insert votes")
+		err := db.Select(&txs, `select block_height, txid, amount, txfee, typ, send_from, send_to, sig from txs 
+		where block_height >= $1 and block_height < $2`, cursor, cursor+height_per_query)
+		infra.PanicErr(err)
 
+		voteCount := 0
 		for _, tx := range txs {
 			votes := tx.DposVotes()
+			voteCount += len(votes)
 			for _, v := range votes {
-				_, err = db.Exec(`insert into dpos_vote (block_height, txid, delegate, voter, amount) values ($1, $2, $3, $4, $5)`,
-					v.BlockHeight, v.Txid, v.Delegate, v.Voter, v.Amount)
-				sync.PanicErr(err)
+				err = repo.InsertVote(nil, v)
+				infra.PanicErr(err)
 			}
 		}
+		log.Printf("height %d~%d, tx count %d, votes: %d\n", cursor, cursor+height_per_query, len(txs), voteCount)
 	}
 }
