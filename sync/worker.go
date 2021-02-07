@@ -34,8 +34,8 @@ func (w *Worker) Stop(ctx context.Context) {
 }
 
 func (w *Worker) Sync(ctx context.Context) {
-	log.Println("worker sync")
-	defer log.Println("sync done")
+	// log.Println("worker sync")
+	// defer log.Println("sync done")
 
 	err := w.removeForkedBlocks()
 	if err != nil {
@@ -51,7 +51,7 @@ func (w *Worker) Sync(ctx context.Context) {
 
 // 移除分叉的块
 func (w *Worker) removeForkedBlocks() error {
-	log.Println("will removed discarded blocks")
+	// log.Println("will removed discarded blocks")
 	var removedBlocks []uint64
 	defer func() {
 		if l := len(removedBlocks); l > 0 {
@@ -107,7 +107,7 @@ func (w *Worker) sync2latest(ctx context.Context) error {
 		log.Println("no new block")
 		return nil
 	}
-	log.Printf("will sync, %d - %d\n", nextBlockHeight, topHeight)
+	log.Printf("will sync, (%d -> %d]\n", nextBlockHeight-1, topHeight)
 
 	type detailOrErr struct {
 		detail *bbrpc.BlockDetail //为空时表示结束

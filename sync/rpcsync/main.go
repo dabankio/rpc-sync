@@ -16,13 +16,11 @@ func main() {
 	log.Println("started")
 	tick := time.Tick(time.Minute)
 
-	closeChan := make(chan os.Signal)
-
 	worker, err := InitializeWorker()
 	infra.PanicErr(err)
 	log.Println("worker initialized")
 
-	// signal.Notify(closeChan, os.Interrupt, os.Kill)
+	closeChan := make(chan os.Signal)
 	signal.Notify(closeChan, syscall.SIGINT, syscall.SIGKILL)
 
 	syncFlag := int32(0) //0表示没有在同步，1表示同步中

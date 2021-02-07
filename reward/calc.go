@@ -63,7 +63,7 @@ func (c *Calc) Calc(fromTime, toTime time.Time) ([]Reward, error) {
 		return nil, errors.Wrap(err, "get blocks height between err")
 	}
 	if fromHeight < minDposHeight {
-		return nil, errors.Errorf("高度小于 %d 是不统计dpos奖励", minDposHeight)
+		return nil, errors.Errorf("高度小于 %d 时不统计dpos奖励", minDposHeight)
 	}
 
 	blocks, err := c.syncRepo.BlocksBetweenHeight(fromHeight, toHeight)
@@ -124,7 +124,7 @@ func calcRewards(blocks []sync.Block, sums []VoteSum, votes []sync.DposVote, fro
 		miner := MinerAddress(block.Miner)
 		lastHeight = block.Height
 		if block.Typ == sync.ConsensusTypeDpos {
-			totalVoteAmount := decimal.NewFromInt(0)
+			totalVoteAmount := decimal.NewFromInt(0) //截止前一个块的投票汇总
 			for _, voteAmount := range voteMap[miner] {
 				totalVoteAmount = totalVoteAmount.Add(voteAmount)
 			}
@@ -144,7 +144,7 @@ func calcRewards(blocks []sync.Block, sums []VoteSum, votes []sync.DposVote, fro
 				log.Printf("[dbg] height: %d, delegate: %s, voter: %s, reward: %s \n", block.Height, miner, voter, rewardAmountAtHeight)
 			}
 		}
-		for _, vote := range votesAtHeightMap[block.Height] {
+		for _, vote := range votesAtHeightMap[block.Height] { //累计这个块的投票数据
 			del := MinerAddress(vote.Delegate)
 			if _, ok := voteMap[del]; !ok {
 				voteMap[del] = make(map[string]decimal.Decimal)
@@ -160,7 +160,8 @@ func calcRewards(blocks []sync.Block, sums []VoteSum, votes []sync.DposVote, fro
 	zero := decimal.NewFromInt(0)
 	for miner, mrm := range rewardMap {
 		for voter, rewardAmount := range mrm {
-			if rewardAmount.Equal(zero) {
+			amt := rewardAmount.Truncate(bbcDecimals__)
+			if amt.Equal(zero) {
 				continue
 			}
 			rewards = append(rewards, Reward{
@@ -168,7 +169,7 @@ func calcRewards(blocks []sync.Block, sums []VoteSum, votes []sync.DposVote, fro
 				ToHeight:   toHeight,
 				Delegate:   string(miner),
 				Voter:      voter,
-				Amount:     rewardAmount.Truncate(bbcDecimals__),
+				Amount:     amt,
 			})
 		}
 	}

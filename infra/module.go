@@ -6,4 +6,5 @@ var Module = wire.NewSet(
 	NewPGDB,
 	ParseConf,
 	NewBBCClient,
+	NewSched,
 )

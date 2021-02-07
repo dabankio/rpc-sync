@@ -18,7 +18,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 
-	_ "github.com/go-sql-driver/mysql"
 )
 
 const (
@@ -187,9 +186,9 @@ func getVote(tplHex string) (dele, voter string) {
 	if len(tplHex) != 132 {
 		panic("not vote info len 132")
 	}
-	del, err := gobbc.NewCDestinationFromString(tplHex[:66])
+	del, err := gobbc.NewCDestinationFromHexString(tplHex[:66])
 	pe(err)
-	owner, err := gobbc.NewCDestinationFromString(tplHex[66:])
+	owner, err := gobbc.NewCDestinationFromHexString(tplHex[66:])
 	pe(err)
 	return del.String(), owner.String()
 }
