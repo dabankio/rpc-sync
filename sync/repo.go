@@ -13,7 +13,7 @@ type Repo struct {
 	db *sqlx.DB
 }
 
-func (r *Repo) lastestSyncedBlock() (Block, error) {
+func (r *Repo) LastestSyncedBlock() (Block, error) {
 	var blc Block
 	err := r.db.Get(&blc, "select * from blocks order by height desc limit 1")
 	return blc, infra.WrapErr(err, "db get latest synced block err")

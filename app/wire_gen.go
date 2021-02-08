@@ -32,6 +32,8 @@ func InitializeApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	app := NewApp(sched)
+	handler := reward.NewHandler(rewardRepo)
+	mux := NewRouter(handler)
+	app := NewApp(sched, mux)
 	return app, nil
 }

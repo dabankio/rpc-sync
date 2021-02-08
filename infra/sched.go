@@ -121,7 +121,7 @@ func NewSched(jobs []Job) (*Sched, error) {
 
 	sched := Sched{
 		cron: cron.New(
-			cron.WithLogger(logger),
+			// cron.WithLogger(logger),
 			cron.WithSeconds(),
 			cron.WithChain(
 				cron.Recover(logger),

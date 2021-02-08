@@ -1,8 +1,10 @@
 package reward
 
 import (
+	"bbcsyncer/infra"
 	"time"
 
+	"github.com/dabankio/civil"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -48,4 +50,15 @@ func (r *Repo) InsertDayReward(items []DayReward) error {
 		}
 	}
 	return nil
+}
+
+func (r *Repo) MaxDayOfDayReward() (*civil.Date, error) {
+	var ret civil.Date
+	err := r.db.Get(&ret, `select max(day)::text as day from day_reward`)
+	return &ret, infra.WrapErr(err, "get max day of daily reward failed")
+}
+
+func (r *Repo) DailyRewardsOfDay(day civil.Date) (items []DayReward, err error) {
+	err = r.db.Select(&items, `select * from day_reward where day = $1`, day)
+	return
 }

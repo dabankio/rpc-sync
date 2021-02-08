@@ -12,6 +12,6 @@ import (
 
 func InitializeApp() (*App, error) {
 	wire.Build(infra.Module, sync.Module, reward.Module,
-		NewApp, NewJobs)
+		NewApp, NewJobs, NewRouter)
 	return &App{}, nil
 }

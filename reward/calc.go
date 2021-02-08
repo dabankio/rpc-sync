@@ -2,6 +2,8 @@ package reward
 
 import (
 	"bbcsyncer/sync"
+	"context"
+	"database/sql"
 	"log"
 	"time"
 
@@ -25,6 +27,50 @@ type Calc struct {
 	syncRepo *sync.Repo
 }
 
+// IsCalcAbleDay 是否是可以统计的日期
+func IsCalcAbleDay(day civil.Date, now time.Time) bool {
+	now = now.In(ZoneBeijingTime)
+	today := civil.DateOf(now)
+
+	if calcDaysSinceToday := day.DaysSince(today); calcDaysSinceToday >= 0 { //今天或今天之后不统计
+		return false
+	} else if calcDaysSinceToday == -1 { //昨天
+		if now.Hour() < 1 { //如果统计昨天的，则至少在1点以后（避免区块回滚)
+			return false
+		}
+	} else { //前天及更往前
+	}
+	return true
+}
+
+// DailyRewardCalc 统计至昨天的所有dpos奖励数据
+func (c *Calc) DailyRewardCalc(context.Context) (string, error) {
+	var calcDay civil.Date
+	now := time.Now().In(ZoneBeijingTime)
+
+	maxDay, err := c.repo.MaxDayOfDayReward()
+	if err != nil {
+		if err != sql.ErrNoRows {
+			return "", err
+		}
+		calcDay = civil.DateOf(now).AddDays(-1) //如果没有数据则统计前一天的
+	} else {
+		if maxDay.Year == 0 {
+			calcDay = civil.DateOf(now).AddDays(-1) //如果没有数据则统计前一天的
+		} else {
+			calcDay = (*maxDay).AddDays(1)
+		}
+	}
+
+	for ; IsCalcAbleDay(calcDay, now); calcDay = calcDay.AddDays(1) {
+		_, err = c.CalcAtDayEast8zoneAndSave(calcDay)
+		if err != nil {
+			return "", err
+		}
+	}
+	return "", nil
+}
+
 func (c *Calc) CalcAtDayEast8zoneAndSave(day civil.Date) ([]DayReward, error) {
 	rwds, err := c.CalcAtDayEast8zone(day)
 	if err != nil {
@@ -34,12 +80,22 @@ func (c *Calc) CalcAtDayEast8zoneAndSave(day civil.Date) ([]DayReward, error) {
 	return rwds, err
 }
 func (c *Calc) CalcAtDayEast8zone(day civil.Date) ([]DayReward, error) {
+	log.Println("will calc daily reward at:", day)
 	defer func(startAt time.Time) {
 		log.Println("calc_at_day_done, cost: ", time.Now().Sub(startAt))
 	}(time.Now())
 
 	fromTime := day.In(ZoneBeijingTime)
 	toTime := fromTime.Add(24 * time.Hour).Add(-time.Microsecond)
+
+	latestBlock, err := c.syncRepo.LastestSyncedBlock()
+	if err != nil {
+		return nil, err
+	}
+	if latestBlock.Time.Sub(toTime) <= time.Hour { // 需要确保目前最高的块的时间至少大于统计区间1个小时(没有同步完或者安全高度不够都不统计)
+		return nil, nil
+	}
+
 	rewards, err := c.Calc(fromTime, toTime)
 	if err != nil {
 		return nil, err
@@ -141,7 +197,7 @@ func calcRewards(blocks []sync.Block, sums []VoteSum, votes []sync.DposVote, fro
 					rewardMap[miner][voter] = decimal.NewFromInt(0)
 				}
 				rewardMap[miner][voter] = rewardMap[miner][voter].Add(rewardAmountAtHeight)
-				log.Printf("[dbg] height: %d, delegate: %s, voter: %s, reward: %s \n", block.Height, miner, voter, rewardAmountAtHeight)
+				// log.Printf("[dbg] height: %d, delegate: %s, voter: %s, reward: %s \n", block.Height, miner, voter, rewardAmountAtHeight)
 			}
 		}
 		for _, vote := range votesAtHeightMap[block.Height] { //累计这个块的投票数据

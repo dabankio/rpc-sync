@@ -17,7 +17,6 @@ import (
 	"github.com/jmoiron/sqlx/types"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-
 )
 
 const (

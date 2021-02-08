@@ -59,7 +59,7 @@ func (w *Worker) removeForkedBlocks() error {
 		}
 	}()
 	for {
-		checkBlock, err := w.repo.lastestSyncedBlock()
+		checkBlock, err := w.repo.LastestSyncedBlock()
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil
@@ -88,7 +88,7 @@ func (w *Worker) removeForkedBlocks() error {
 // 同步至最新高度
 func (w *Worker) sync2latest(ctx context.Context) error {
 	var nextBlockHeight uint64
-	lastBlock, err := w.repo.lastestSyncedBlock()
+	lastBlock, err := w.repo.LastestSyncedBlock()
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			nextBlockHeight = 0
