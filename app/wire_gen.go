@@ -7,6 +7,7 @@ package main
 
 import (
 	"bbcsyncer/infra"
+	"bbcsyncer/pow"
 	"bbcsyncer/reward"
 	"bbcsyncer/sync"
 )
@@ -33,7 +34,9 @@ func InitializeApp() (*App, error) {
 		return nil, err
 	}
 	handler := reward.NewHandler(rewardRepo)
-	mux := NewRouter(handler)
+	powRepo := pow.NewRepo(db)
+	powHandler := pow.NewHandler(powRepo)
+	mux := NewRouter(handler, powHandler)
 	app := NewApp(sched, mux)
 	return app, nil
 }

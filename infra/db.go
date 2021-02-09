@@ -2,15 +2,18 @@ package infra
 
 import (
 	"context"
+	_ "embed"
 	"log"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/jmoiron/sqlx"
-
 	_ "github.com/lib/pq"
 )
+
+//go:embed db.sql
+var schemaSQL string
 
 var cachedFieldMap sync.Map
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bbcsyncer/infra"
+	"bbcsyncer/pow"
 	"bbcsyncer/reward"
 	"bbcsyncer/sync"
 	"context"
@@ -44,12 +45,13 @@ func (app App) ServeHTTP() {
 	}()
 }
 
-func NewRouter(rewardHandler *reward.Handler) *chi.Mux {
+func NewRouter(rewardHandler *reward.Handler, powHandler *pow.Handler) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
 	r.Get("/api/dpos/rewards", rewardHandler.GetDailyDposRewards)
+	r.Post("/api/UnlockBblock", powHandler.CreateUnlockedBlocks)
 	return r
 }
 
@@ -66,7 +68,7 @@ func NewJobs(syncWorker *sync.Worker, calc *reward.Calc) []infra.Job {
 		},
 		{ //每天计算当天dpos奖励
 			Name:    "calc_daily_reward",
-			Cron:    "@every 20s",
+			Cron:    "@every 1h",
 			Run:     calc.DailyRewardCalc,
 			Timeout: time.Hour,
 		},

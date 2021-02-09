@@ -1,6 +1,10 @@
 package pow
 
-import "github.com/shopspring/decimal"
+import (
+	"time"
+
+	"github.com/shopspring/decimal"
+)
 
 type ReqSign struct {
 	RequestSign string `json:"requestSign"`
@@ -12,8 +16,8 @@ type ReqSign struct {
 // signPlain = appID + ":" + timeSpan + ":" + signPlain;
 
 type UnlockBlockBase struct {
-	AddrFrom string `json:"addrFrom"`
-	Date     string `json:"date"`
+	AddrFrom string    `json:"addrFrom"`
+	Date     time.Time `json:"date"`
 }
 
 type UnlockBlock struct {
@@ -22,10 +26,10 @@ type UnlockBlock struct {
 	AddrTo   string          `json:"addrTo"`
 	Balance  decimal.Decimal `json:"balance"`
 	TimeSpan int64           `json:"timeSpan"`
-	Height   int             `json:"height"`
+	Height   uint64          `json:"height"`
 }
 
-type ReqUnblocks struct {
+type ReqUnlockedBlocks struct {
 	ReqSign
 	BalanceLst []UnlockBlock `json:"balanceLst"`
 }

@@ -1,5 +1,7 @@
+-- 脚本用于单元测试，生产手工建表;
 -- create user bbcrpc_sync_usr with password 'pwd';
--- drop database bbcrpc_sync;create database bbcrpc_sync with owner bbcrpc_sync_usr;
+-- drop database bbcrpc_sync;
+-- create database bbcrpc_sync with owner bbcrpc_sync_usr;
 
 create table if not exists blocks (
     height integer primary key,
@@ -61,8 +63,19 @@ create table day_reward (
     CONSTRAINT unq_day_delegate_voter unique(day, delegate, voter)
 ) without oids;
 
-alter table blocks owner to bbcrpc_sync_usr;
-alter table txs owner to bbcrpc_sync_usr;
-alter table dpos_vote owner to bbcrpc_sync_usr;
-alter table vote_sum owner to bbcrpc_sync_usr;
-alter table day_reward owner to bbcrpc_sync_usr;
+create table unblocked_block (
+    addr_from text not null,
+    addr_to text not null,
+    balance numeric,
+    time_span integer,
+    day date,
+    height integer,
+    CONSTRAINT unq_from_to_day unique(addr_from, addr_to, day)
+)without oids;
+
+--alter table blocks owner to bbcrpc_sync_usr;
+--alter table txs owner to bbcrpc_sync_usr;
+--alter table dpos_vote owner to bbcrpc_sync_usr;
+--alter table vote_sum owner to bbcrpc_sync_usr;
+--alter table day_reward owner to bbcrpc_sync_usr;
+--alter table unblocked_block owner to bbcrpc_sync_usr;

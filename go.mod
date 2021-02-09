@@ -1,6 +1,6 @@
 module bbcsyncer
 
-go 1.14
+go 1.16
 
 require (
 	github.com/dabankio/bbrpc v1.2.0-beta.16

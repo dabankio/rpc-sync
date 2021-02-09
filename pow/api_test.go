@@ -19,10 +19,10 @@ import (
 func TestOriginAPI(t *testing.T) {
 	// INSERT INTO `AppInfo` (id,appID,appName,addTime,secretKey,note) VALUES (1, 'som_app', 'app_name_x', now(), "abc_key", "notex")
 
-	req := ReqUnblocks{}
+	req := ReqUnlockedBlocks{}
 	req.AppID = "som_app"
 	req.TimeSpan = fmt.Sprintf("%d", time.Now().Unix())
-	req.SignPlain = "any_plain"
+	req.SignPlain = "any_plainx"
 	{
 		raw := fmt.Sprintf("%s:%s:%s", req.AppID, req.TimeSpan, req.SignPlain)
 		fmt.Println("raw:", raw)
@@ -33,7 +33,8 @@ func TestOriginAPI(t *testing.T) {
 	req.BalanceLst = append(req.BalanceLst, UnlockBlock{
 		UnlockBlockBase: UnlockBlockBase{
 			AddrFrom: "from_addx",
-			Date:     "2021-02-07T02:46:25.948Z",
+			// Date:     "2021-02-07T02:46:25.948Z",
+			Date: time.Now(),
 		},
 		AddrTo:   "123",
 		Balance:  decimal.NewFromFloat(2.33),
@@ -45,7 +46,8 @@ func TestOriginAPI(t *testing.T) {
 	r.NoError(t, err)
 	fmt.Println("request bytes: ", string(reqB))
 
-	httpReq, err := http.NewRequest(http.MethodPost, "http://localhost:7777/api/UnlockBblock", bytes.NewReader(reqB))
+	httpReq, err := http.NewRequest(http.MethodPost, "http://localhost:10003/api/UnlockBblock", bytes.NewReader(reqB))
+	// httpReq, err := http.NewRequest(http.MethodPost, "http://localhost:7777/api/UnlockBblock", bytes.NewReader(reqB))
 	r.NoError(t, err)
 	httpReq.Header.Add("Content-type", "application/json")
 
@@ -54,5 +56,5 @@ func TestOriginAPI(t *testing.T) {
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	r.NoError(t, err)
-	fmt.Println("resp :", string(body))
+	fmt.Println("resp:", string(body))
 }
