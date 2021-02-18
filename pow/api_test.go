@@ -37,7 +37,7 @@ func TestOriginAPI(t *testing.T) {
 			Date: time.Now(),
 		},
 		AddrTo:   "123",
-		Balance:  decimal.NewFromFloat(2.33),
+		Balance:  decimal.NewFromFloat(2.3344),
 		TimeSpan: time.Now().Unix(),
 		Height:   999,
 	})
@@ -46,8 +46,8 @@ func TestOriginAPI(t *testing.T) {
 	r.NoError(t, err)
 	fmt.Println("request bytes: ", string(reqB))
 
-	// httpReq, err := http.NewRequest(http.MethodPost, "http://localhost:10003/api/UnlockBblock", bytes.NewReader(reqB))
-	httpReq, err := http.NewRequest(http.MethodPost, "http://localhost:7777/api/UnlockBblock", bytes.NewReader(reqB))
+	httpReq, err := http.NewRequest(http.MethodPost, "http://localhost:10003/api/UnlockBblock", bytes.NewReader(reqB))
+	// httpReq, err := http.NewRequest(http.MethodPost, "http://localhost:7777/api/UnlockBblock", bytes.NewReader(reqB))
 	r.NoError(t, err)
 	httpReq.Header.Add("Content-type", "application/json")
 
@@ -57,4 +57,6 @@ func TestOriginAPI(t *testing.T) {
 	body, err := ioutil.ReadAll(resp.Body)
 	r.NoError(t, err)
 	fmt.Println("resp:", string(body))
+	//{"Success":true,"Code":1,"Message":"OK","Data":null}
+	// {"Data":1,"Success":true,"Code":1,"Message":"OK"}
 }

@@ -78,21 +78,22 @@ create table day_reward (
     CONSTRAINT unq_day_delegate_voter unique(day, delegate, voter)
 ) without oids;
 
-create table unblocked_block (
+create table unlocked_block (
     addr_from text not null,
     addr_to text not null,
     balance numeric,
     time_span integer,
     day date,
     height integer,
-    CONSTRAINT unq_from_to_day unique(addr_from, addr_to, day)
+    CONSTRAINT unq_from_to_day unique(addr_from, addr_to, day),
+    CONSTRAINT unq_height_from_to unique(height, addr_from, addr_to)
 )without oids;
 
 --alter table txs owner to bbcrpc_sync_usr;
 --alter table dpos_vote owner to bbcrpc_sync_usr;
 --alter table vote_sum owner to bbcrpc_sync_usr;
 --alter table day_reward owner to bbcrpc_sync_usr;
---alter table unblocked_block owner to bbcrpc_sync_usr;
+--alter table unlocked_block owner to bbcrpc_sync_usr;
 --alter table blocks owner to bbcrpc_sync_usr;
 --alter table txs_1 owner to bbcrpc_sync_usr;
 --alter table txs_2 owner to bbcrpc_sync_usr;

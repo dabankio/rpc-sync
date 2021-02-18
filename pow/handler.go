@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/dabankio/civil"
+	"github.com/jmoiron/sqlx"
 )
 
 func NewHandler(repo *Repo) *Handler { return &Handler{repo: repo} }
@@ -33,7 +34,9 @@ func (h *Handler) CreateUnlockedBlocks(w http.ResponseWriter, req *http.Request)
 			Height:   x.Height,
 		})
 	}
-	err := h.repo.InsertUnlockedBlocks(items)
+	err := infra.RunInTx(h.repo.DB, func(tx *sqlx.Tx) error {
+		return h.repo.InsertUnlockedBlocks(items, tx)
+	})
 	if err != nil {
 		h.WriteErr(w, err)
 		return

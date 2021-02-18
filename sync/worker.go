@@ -118,7 +118,7 @@ func (w *Worker) sync2latest(ctx context.Context) error {
 			select {
 			case <-_ctx.Done():
 				return
-			default: //do nothing
+			default:
 				detailChan <- x
 			}
 		}

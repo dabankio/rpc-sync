@@ -2,11 +2,11 @@ package pow
 
 import (
 	"bbcsyncer/infra"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/dabankio/civil"
+	"github.com/jmoiron/sqlx"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 )
@@ -34,6 +34,8 @@ func TestRepo_InsertUnlockedBlocks(t *testing.T) {
 			Day:      civil.DateOf(time.Now()),
 		},
 	}
-	err := repo.InsertUnlockedBlocks(blocks)
+	err := infra.RunInTx(db, func(tx *sqlx.Tx) error {
+		return repo.InsertUnlockedBlocks(blocks, tx)
+	})
 	require.NoError(t, err)
 }

@@ -78,7 +78,7 @@ func NewJobs(syncWorker *sync.Worker, calc *reward.Calc) []infra.Job {
 	return []infra.Job{
 		{ //同步区块数据
 			Name: "sync_blocks",
-			Cron: "@every 1m",
+			Cron: "@every 30s",
 			Run: func(ctx context.Context) (string, error) {
 				syncWorker.Sync(ctx)
 				return "", nil
