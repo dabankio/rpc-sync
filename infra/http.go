@@ -2,6 +2,7 @@ package infra
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 )
@@ -18,7 +19,24 @@ func (_ BaseHandler) WriteErr(w http.ResponseWriter, err error) {
 	}
 }
 
+// return success? (auto write json err when failed)
+func (h BaseHandler) BindBody(w http.ResponseWriter, req *http.Request, v interface{}) bool {
+	b, err := io.ReadAll(req.Body)
+	if err != nil {
+		h.WriteErr(w, err)
+		return false
+	}
+
+	err = json.Unmarshal(b, v)
+	if err != nil {
+		h.WriteErr(w, err)
+		return false
+	}
+	return true
+}
+
 func (_ BaseHandler) WriteJSON(w http.ResponseWriter, v interface{}) {
+	w.Header().Add("Content-Type", "application/json")
 	b, err := json.Marshal(v)
 	if err != nil {
 		w.Write([]byte(err.Error()))
@@ -29,3 +47,14 @@ func (_ BaseHandler) WriteJSON(w http.ResponseWriter, v interface{}) {
 		log.Println("[err] write json response: ", err)
 	}
 }
+
+// 旧有.net系统数据结构
+// eg: {"Data":1,"Success":true,"Code":1,"Message":"OK"}
+type LegacyResult struct {
+	Success bool
+	Code    int
+	Message string
+	Data    interface{}
+}
+
+const LegacyCodeSuccess = 1

@@ -2,8 +2,6 @@ package pow
 
 import (
 	"bbcsyncer/infra"
-	"encoding/json"
-	"io"
 	"net/http"
 
 	"github.com/dabankio/civil"
@@ -19,16 +17,8 @@ type Handler struct {
 func (h *Handler) CreateUnlockedBlocks(w http.ResponseWriter, req *http.Request) {
 	// TODO 客户端认证
 
-	b, err := io.ReadAll(req.Body)
-	if err != nil {
-		h.WriteErr(w, err)
-		return
-	}
-
 	var reqModel ReqUnlockedBlocks
-	err = json.Unmarshal(b, &reqModel)
-	if err != nil {
-		h.WriteErr(w, err)
+	if !h.BindBody(w, req, &reqModel) {
 		return
 	}
 
@@ -43,10 +33,25 @@ func (h *Handler) CreateUnlockedBlocks(w http.ResponseWriter, req *http.Request)
 			Height:   x.Height,
 		})
 	}
-	err = h.repo.InsertUnlockedBlocks(items)
+	err := h.repo.InsertUnlockedBlocks(items)
 	if err != nil {
 		h.WriteErr(w, err)
 		return
 	}
-	h.WriteJSON(w, "ok")
+	h.WriteJSON(w, infra.LegacyResult{
+		Success: true,
+		Code:    infra.LegacyCodeSuccess,
+		Message: "OK",
+	})
+}
+
+func (h *Handler) Query(w http.ResponseWriter, req *http.Request) {
+	addrFrom := req.URL.Query().Get("addrFrom")
+	dateStr := req.URL.Query().Get("date")
+
+	if addrFrom == "" || dateStr == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("empty param"))
+		return
+	}
 }

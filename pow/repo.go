@@ -26,3 +26,8 @@ func (r *Repo) InsertUnlockedBlocks(blocks []UnlockedBlock) error {
 	values (:addr_from, :addr_to, :balance, :time_span, :day, :height)`, blocks)
 	return err
 }
+
+func (r *Repo) QueryUnlockedBlocks(addrFrom string, day civil.Date) (items []UnlockBlock, err error) {
+	err = r.db.Select(`select * from unblocked_block where addr_from = $1 and day = $2`, addrFrom, day)
+	return
+}

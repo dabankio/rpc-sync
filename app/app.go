@@ -12,6 +12,9 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+
+	"net/http/pprof"
+	_ "net/http/pprof" //性能监控
 )
 
 func NewApp(
@@ -35,14 +38,14 @@ func (app *App) start() {
 }
 func (app *App) stop() {
 	app.sched.Shutdown()
-
 }
 
 func (app App) ServeHTTP() {
 	go func() {
 		log.Println("http server started")
-		http.ListenAndServe(":10003", app.router)
+		log.Println(http.ListenAndServe(":10003", app.router))
 	}()
+
 }
 
 func NewRouter(rewardHandler *reward.Handler, powHandler *pow.Handler) *chi.Mux {
@@ -52,7 +55,23 @@ func NewRouter(rewardHandler *reward.Handler, powHandler *pow.Handler) *chi.Mux 
 
 	r.Get("/api/dpos/rewards", rewardHandler.GetDailyDposRewards)
 	r.Post("/api/UnlockBblock", powHandler.CreateUnlockedBlocks)
+
+	registerDebugMegrics(r)
 	return r
+}
+
+func registerDebugMegrics(r *chi.Mux) {
+	r.Get("/debug/pprof", pprof.Index)
+	r.Get("/debug/cmdline", pprof.Cmdline)
+	r.Get("/debug/profile", pprof.Profile)
+	r.Get("/debug/trace", pprof.Trace)
+
+	r.Get("/debug/allocs", pprof.Handler("allocs").ServeHTTP)
+	r.Get("/debug/block", pprof.Handler("block").ServeHTTP)
+	r.Get("/debug/goroutine", pprof.Handler("goroutine").ServeHTTP)
+	r.Get("/debug/heap", pprof.Handler("heap").ServeHTTP)
+	r.Get("/debug/mutex", pprof.Handler("mutex").ServeHTTP)
+	r.Get("/debug/threadcreate", pprof.Handler("threadcreate").ServeHTTP)
 }
 
 func NewJobs(syncWorker *sync.Worker, calc *reward.Calc) []infra.Job {

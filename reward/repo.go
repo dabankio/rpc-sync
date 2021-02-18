@@ -58,7 +58,7 @@ func (r *Repo) MaxDayOfDayReward() (*civil.Date, error) {
 	return &ret, infra.WrapErr(err, "get max day of daily reward failed")
 }
 
-func (r *Repo) DailyRewardsOfDay(day civil.Date) (items []DayReward, err error) {
-	err = r.db.Select(&items, `select * from day_reward where day = $1`, day)
+func (r *Repo) DailyRewardsOfDay(day civil.Date, delegateAddr string) (items []DayReward, err error) {
+	err = r.db.Select(&items, `select * from day_reward where day = $1 and delegate = $2`, day, delegateAddr)
 	return
 }

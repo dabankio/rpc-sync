@@ -46,8 +46,8 @@ func TestOriginAPI(t *testing.T) {
 	r.NoError(t, err)
 	fmt.Println("request bytes: ", string(reqB))
 
-	httpReq, err := http.NewRequest(http.MethodPost, "http://localhost:10003/api/UnlockBblock", bytes.NewReader(reqB))
-	// httpReq, err := http.NewRequest(http.MethodPost, "http://localhost:7777/api/UnlockBblock", bytes.NewReader(reqB))
+	// httpReq, err := http.NewRequest(http.MethodPost, "http://localhost:10003/api/UnlockBblock", bytes.NewReader(reqB))
+	httpReq, err := http.NewRequest(http.MethodPost, "http://localhost:7777/api/UnlockBblock", bytes.NewReader(reqB))
 	r.NoError(t, err)
 	httpReq.Header.Add("Content-type", "application/json")
 

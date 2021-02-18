@@ -18,24 +18,39 @@ create table if not exists blocks (
 
 create index if not exists idx_block_time on blocks using btree (time);
 
+--txs用 block_height 做表分区以避免单表过度膨胀，txs访问必须指定block_height (可以结合blocks表使用),以50w高度为一个分区， txs_1 存储1~50w高度的数据, txs_2 50w~100w;
+
 create table txs (
     block_height integer REFERENCES blocks(height),
     txid text not null,
     version integer,
     typ text not null,
-    time timestamp with time zone,
+    time timestamp with time zone not null,
     lockuntil integer,
     anchor text,
     block_hash text,
     send_from text,
     send_to text,
-    amount numeric,
-    txfee numeric,
+    amount numeric check(amount >= 0),
+    txfee numeric check(txfee >= 0),
     data text,
     sig text,
     fork text,
-    vin jsonb
-) without oids;
+    vin jsonb,
+    CONSTRAINT unq_height_txid UNIQUE (block_height, txid)
+) PARTITION BY RANGE (block_height) without oids;
+
+create index on txs (block_height);
+
+CREATE TABLE txs_1 PARTITION OF txs FOR VALUES FROM (0) TO (500000);
+CREATE TABLE txs_2 PARTITION OF txs FOR VALUES FROM (500000) TO (1000000);
+CREATE TABLE txs_3 PARTITION OF txs FOR VALUES FROM (1000000) TO (1500000);
+CREATE TABLE txs_4 PARTITION OF txs FOR VALUES FROM (1500000) TO (2000000);
+CREATE TABLE txs_5 PARTITION OF txs FOR VALUES FROM (2000000) TO (2500000);
+CREATE TABLE txs_6 PARTITION OF txs FOR VALUES FROM (2500000) TO (3000000);
+CREATE TABLE txs_7 PARTITION OF txs FOR VALUES FROM (3000000) TO (3500000);
+CREATE TABLE txs_8 PARTITION OF txs FOR VALUES FROM (3500000) TO (4000000);
+CREATE TABLE txs_9 PARTITION OF txs FOR VALUES FROM (4000000) TO (4500000);
 
 create table dpos_vote (
     block_height integer REFERENCES blocks(height),
@@ -73,9 +88,18 @@ create table unblocked_block (
     CONSTRAINT unq_from_to_day unique(addr_from, addr_to, day)
 )without oids;
 
---alter table blocks owner to bbcrpc_sync_usr;
 --alter table txs owner to bbcrpc_sync_usr;
 --alter table dpos_vote owner to bbcrpc_sync_usr;
 --alter table vote_sum owner to bbcrpc_sync_usr;
 --alter table day_reward owner to bbcrpc_sync_usr;
 --alter table unblocked_block owner to bbcrpc_sync_usr;
+--alter table blocks owner to bbcrpc_sync_usr;
+--alter table txs_1 owner to bbcrpc_sync_usr;
+--alter table txs_2 owner to bbcrpc_sync_usr;
+--alter table txs_3 owner to bbcrpc_sync_usr;
+--alter table txs_4 owner to bbcrpc_sync_usr;
+--alter table txs_5 owner to bbcrpc_sync_usr;
+--alter table txs_6 owner to bbcrpc_sync_usr;
+--alter table txs_7 owner to bbcrpc_sync_usr;
+--alter table txs_8 owner to bbcrpc_sync_usr;
+--alter table txs_9 owner to bbcrpc_sync_usr;

@@ -26,13 +26,6 @@ type Worker struct {
 	client *bbrpc.Client
 }
 
-func (w *Worker) Start(ctx context.Context) {
-	log.Println("worker started")
-}
-func (w *Worker) Stop(ctx context.Context) {
-	log.Println("worker stopped")
-}
-
 func (w *Worker) Sync(ctx context.Context) {
 	// log.Println("worker sync")
 	// defer log.Println("sync done")
@@ -107,7 +100,7 @@ func (w *Worker) sync2latest(ctx context.Context) error {
 		log.Println("no new block")
 		return nil
 	}
-	log.Printf("will sync, (%d -> %d]\n", nextBlockHeight-1, topHeight)
+	// log.Printf("will sync, (%d -> %d]\n", nextBlockHeight-1, topHeight)
 
 	type detailOrErr struct {
 		detail *bbrpc.BlockDetail //为空时表示结束
@@ -174,7 +167,7 @@ func (w *Worker) sync2latest(ctx context.Context) error {
 }
 
 func (w *Worker) saveBlock(bd *bbrpc.BlockDetail) error {
-	log.Printf("save_block %d %s, tx count: %d", bd.Height, bd.Hash, len(bd.Tx))
+	log.Printf("save_block %7d %s, tx count: %d", bd.Height, bd.Hash, len(bd.Tx))
 	return infra.RunInTx(w.repo.db, func(tx *sqlx.Tx) error {
 		err := w.repo.insertBlock(tx, NewBlock(bd))
 		if err != nil {

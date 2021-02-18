@@ -2,6 +2,7 @@ package pow
 
 import (
 	"bbcsyncer/infra"
+	"os"
 	"testing"
 	"time"
 
@@ -11,6 +12,8 @@ import (
 )
 
 func TestRepo_InsertUnlockedBlocks(t *testing.T) {
+	// os.Setenv(infra.TestEnvLocalDB, "5432;unittest;unittest;pwd")
+
 	db := infra.MustNewTestPGDB(t)
 	infra.MustMigrateDB(t, db)
 	repo := NewRepo(db)
