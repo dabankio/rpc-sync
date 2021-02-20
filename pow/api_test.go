@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dabankio/civil"
 	"github.com/shopspring/decimal"
 	r "github.com/stretchr/testify/require"
 )
@@ -34,7 +35,7 @@ func TestOriginAPI(t *testing.T) {
 		UnlockBlockBase: UnlockBlockBase{
 			AddrFrom: "from_addx",
 			// Date:     "2021-02-07T02:46:25.948Z",
-			Date: time.Now(),
+			Date: civil.DateOf(time.Now()),
 		},
 		AddrTo:   "123",
 		Balance:  decimal.NewFromFloat(2.3344),
@@ -46,7 +47,8 @@ func TestOriginAPI(t *testing.T) {
 	r.NoError(t, err)
 	fmt.Println("request bytes: ", string(reqB))
 
-	httpReq, err := http.NewRequest(http.MethodPost, "http://localhost:10003/api/UnlockBblock", bytes.NewReader(reqB))
+	httpReq, err := http.NewRequest(http.MethodPost, "http://dabank-sdk.asuscomm.com:28004/api/UnlockBblock", bytes.NewReader(reqB))
+	// httpReq, err := http.NewRequest(http.MethodPost, "http://localhost:10003/api/UnlockBblock", bytes.NewReader(reqB))
 	// httpReq, err := http.NewRequest(http.MethodPost, "http://localhost:7777/api/UnlockBblock", bytes.NewReader(reqB))
 	r.NoError(t, err)
 	httpReq.Header.Add("Content-type", "application/json")

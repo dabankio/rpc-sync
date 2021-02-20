@@ -97,7 +97,7 @@ func (w *Worker) sync2latest(ctx context.Context) error {
 		return errors.Wrap(err, "get top height err")
 	}
 	if uint64(topHeight) < nextBlockHeight { //没有新的块
-		log.Println("no new block")
+		// log.Println("no new block")
 		return nil
 	}
 	// log.Printf("will sync, (%d -> %d]\n", nextBlockHeight-1, topHeight)

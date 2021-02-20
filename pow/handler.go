@@ -2,9 +2,11 @@ package pow
 
 import (
 	"bbcsyncer/infra"
+	"encoding/json"
+	"io"
+	"log"
 	"net/http"
 
-	"github.com/dabankio/civil"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -19,7 +21,20 @@ func (h *Handler) CreateUnlockedBlocks(w http.ResponseWriter, req *http.Request)
 	// TODO 客户端认证
 
 	var reqModel ReqUnlockedBlocks
-	if !h.BindBody(w, req, &reqModel) {
+	// if !h.BindBody(w, req, &reqModel) {
+	// 	return
+	// }
+
+	b, err := io.ReadAll(req.Body)
+	if err != nil {
+		h.WriteErr(w, err)
+		return
+	}
+	log.Println("unlocked blocks request:", string(b))
+
+	err = json.Unmarshal(b, &reqModel)
+	if err != nil {
+		h.WriteErr(w, err)
 		return
 	}
 
@@ -30,11 +45,11 @@ func (h *Handler) CreateUnlockedBlocks(w http.ResponseWriter, req *http.Request)
 			AddrTo:   x.AddrTo,
 			Balance:  x.Balance,
 			TimeSpan: x.TimeSpan,
-			Day:      civil.DateOf(x.Date),
+			Day:      x.Date,
 			Height:   x.Height,
 		})
 	}
-	err := infra.RunInTx(h.repo.DB, func(tx *sqlx.Tx) error {
+	err = infra.RunInTx(h.repo.DB, func(tx *sqlx.Tx) error {
 		return h.repo.InsertUnlockedBlocks(items, tx)
 	})
 	if err != nil {

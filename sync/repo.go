@@ -2,6 +2,7 @@ package sync
 
 import (
 	"bbcsyncer/infra"
+	"log"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
@@ -17,6 +18,12 @@ func (r *Repo) LastestSyncedBlock() (Block, error) {
 	var blc Block
 	err := r.db.Get(&blc, "select * from blocks order by height desc limit 1")
 	return blc, infra.WrapErr(err, "db get latest synced block err")
+}
+
+func (r *Repo) BlockByHeight(height uint64) (Block, error) {
+	var blc Block
+	err := r.db.Get(&blc, "select * from blocks where height = $1", height)
+	return blc, infra.WrapErr(err, "db get block by height err")
 }
 
 func (r *Repo) insertBlock(tx *sqlx.Tx, b Block) error {
@@ -94,4 +101,37 @@ func (r *Repo) DposVotesBetweenHeight(fromHeight, toHeight uint64) (items []Dpos
 	}
 	err = r.db.Select(&items, `select * from dpos_vote where block_height >= $1 and block_height <= $2`, fromHeight, toHeight)
 	return
+}
+
+func (r *Repo) TxsOfHeight(height uint64) (txs []Tx, err error) {
+	err = infra.WrapErr(r.db.Select(&txs, `select * from txs where block_height = $1`, height), "get txs of height err")
+	return
+}
+
+func (r *Repo) WalkBlocks(walker func(*Block, []Tx) error) error {
+	const height_per_query = 100
+	var maxHeight uint64
+	{ //get max height of blocks
+		err := r.db.Get(&maxHeight, "select max(height) from blocks")
+		infra.PanicErr(err)
+		maxHeight += height_per_query
+	}
+
+	log.Println("max height:", maxHeight)
+	var cursor uint64
+	for ; cursor <= maxHeight; cursor++ { //xxx 可以改成一个goroutine读，一个处理以提高效率； 另外也可以处理为批量查询（一个块一个块的遍历有点慢）
+		b, err := r.BlockByHeight(cursor)
+		if err != nil {
+			return err
+		}
+		txs, err := r.TxsOfHeight(cursor)
+		if err != nil {
+			return err
+		}
+		err = walker(&b, txs)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

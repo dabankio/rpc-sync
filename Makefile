@@ -9,3 +9,6 @@ fmt:
 
 wire:
 	cd sync && wire
+
+depGraph:
+	@goda graph bbcsyncer/...:root | dot -Tsvg -o local_graph.svg

@@ -1,8 +1,7 @@
 package pow
 
 import (
-	"time"
-
+	"github.com/dabankio/civil"
 	"github.com/shopspring/decimal"
 )
 
@@ -16,13 +15,12 @@ type ReqSign struct {
 // signPlain = appID + ":" + timeSpan + ":" + signPlain;
 
 type UnlockBlockBase struct {
-	AddrFrom string    `json:"addrFrom"`
-	Date     time.Time `json:"date"`
+	AddrFrom string     `json:"addrFrom"`
+	Date     civil.Date `json:"date"`
 }
 
 type UnlockBlock struct {
 	UnlockBlockBase
-	Id       int64           `json:"id"`
 	AddrTo   string          `json:"addrTo"`
 	Balance  decimal.Decimal `json:"balance"`
 	TimeSpan int64           `json:"timeSpan"`
