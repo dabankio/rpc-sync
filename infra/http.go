@@ -48,6 +48,20 @@ func (_ BaseHandler) WriteJSON(w http.ResponseWriter, v interface{}) {
 	}
 }
 
+func (_ BaseHandler) RealIP(r *http.Request) string {
+	for _, ipHeader := range []string{
+		"x-real-ip",
+		"x-forwarded-for",
+		"x_forwarded_for",
+		"x-forwared-for",
+	} {
+		if h := r.Header.Get(ipHeader); h != "" {
+			return h
+		}
+	}
+	return r.RemoteAddr
+}
+
 // 旧有.net系统数据结构
 // eg: {"Data":1,"Success":true,"Code":1,"Message":"OK"}
 type LegacyResult struct {

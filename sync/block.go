@@ -42,3 +42,13 @@ func NewBlock(blc *bbrpc.BlockDetail) Block {
 		Miner:    blc.Txmint.Sendto,
 	}
 }
+
+type HeightBlockMap map[uint64]Block
+
+func NewHeightBlockMap(blocks []Block) HeightBlockMap {
+	m := make(HeightBlockMap, len(blocks))
+	for i := 0; i < len(blocks); i++ {
+		m[blocks[i].Height] = blocks[i]
+	}
+	return m
+}

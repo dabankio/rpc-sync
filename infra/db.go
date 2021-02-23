@@ -17,19 +17,34 @@ var schemaSQL string
 
 var cachedFieldMap sync.Map
 
+func ToSnakeCase(s string) (ret string) {
+	var uppers []bool
+	for _, r := range s {
+		uppers = append(uppers, r >= 'A' && r <= 'Z')
+	}
+	le := len(s)
+	for i, r := range s {
+		if i > 0 && uppers[i] {
+			if !uppers[i-1] { //前一个是小写
+				ret += "_"
+			} else { //前一个是大写
+				if i != le-1 && !uppers[i+1] { //后一个是小写
+					ret += "_"
+				}
+			}
+		}
+		ret += strings.ToLower(string(r))
+	}
+	return
+}
+
 func setDBMapper(db *sqlx.DB) {
 	db.MapperFunc(func(s string) string { //snake_case
 		v, ok := cachedFieldMap.Load(s)
 		if ok {
 			return v.(string)
 		}
-		var ret string
-		for i, r := range s {
-			if r >= 'A' && r <= 'Z' && i > 0 {
-				ret += "_"
-			}
-			ret += strings.ToLower(string(r))
-		}
+		ret := ToSnakeCase(s)
 		cachedFieldMap.Store(s, ret)
 		return ret
 	})

@@ -94,6 +94,14 @@ func (r *Repo) BlocksBetweenHeight(fromHeight, toHeight uint64) (items []Block, 
 	return
 }
 
+func (r *Repo) BlocksInHeight(height ...uint64) (items []Block, err error) {
+	if len(height) == 0 {
+		return nil, nil
+	}
+	err = r.db.Select(&items, `select * from blocks where height in ($1)`, height)
+	return
+}
+
 // 2个高度间(含端点)的投票详情
 func (r *Repo) DposVotesBetweenHeight(fromHeight, toHeight uint64) (items []DposVote, err error) {
 	if fromHeight > toHeight {
